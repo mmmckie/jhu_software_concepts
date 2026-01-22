@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="home-container">
+    <div class="bio">
+        <h1>Max M. McKie</h1>
+        <h3>Simulation Engineer at Verizon</h3>
+        <p>
+    I am currently employed as a Simulation Engineer at Verizon and am also studying
+    for my M.S. in Artificial Intelligence at Johns Hopkins University!
+  </p>
+  <p>
+    I received my B.S. in Physics from the University of Arizona in 2019 and my
+    M.A. in Physics from the University of Rochester in 2021. My past research
+    includes nanophotonics at UofA and plasma physics at UR. After finishing my
+    master's, I moved to Colorado where I began my career as a Simulation Engineer
+    creating industrial agent-based discrete event simulations at 360 Rail Services.
+    I have since moved to Fort Worth, Texas and bought a house here with my wonderful
+    wife.
+  </p>
+  <p>
+    Physics is my first and foremost passion, although since I entered the
+    workforce I have also had the opportunity to learn about and get my hands 
+    dirty in the wonderful world of artificial intelligence. My ultimate dream is
+    to position myself at the intersection of AI and physics research so that I
+    may help advance the frontier of human scientific knowledge using the
+    smartest and most powerful tools ever created.
+  </p>
+    </div>
+    <div class="photo">
+        <img src="{{ url_for('static', filename='headshot.jpeg') }}" alt="It's a'me">
+    </div>
+</div>
+{% endblock %}
