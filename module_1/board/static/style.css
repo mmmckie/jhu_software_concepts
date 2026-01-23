@@ -47,7 +47,7 @@ h1, h2, b {
 .photo img {
     width: 200px;        /* Control width */
     height: auto;        /* Keeps aspect ratio */
-
+    border-radius: 200px; /* Setting corner radius to crop black corners in pic */
 }
 
 /* Setting hyperlink color */
