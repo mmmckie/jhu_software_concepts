@@ -50,7 +50,45 @@ h1, h2, b {
     border-radius: 200px; /* Setting corner radius to crop black corners in pic */
 }
 
+.email_icon img {
+    width: 20px;        /* Control width */
+    height: auto;        /* Keeps aspect ratio */
+    filter: invert(29%) sepia(93%) saturate(1900%) hue-rotate(190deg);
+}
+
+.email_icon {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.linkedin_icon img {
+    width: 20px;        /* Control width */
+    height: 20px;        /* Force to be square */
+    filter: invert(29%) sepia(93%) saturate(1900%) hue-rotate(190deg);
+}
+
+.linkedin_icon {
+    display: inline-block;
+    vertical-align: middle;
+}
+
 /* Setting hyperlink color */
 a {
     color: #02cb8c;
+}
+
+/* Shrinking whitespace a bit between paragraphs within a list item */
+li p {
+    margin-bottom: 4px;
+    margin-top: 4px;
+}
+
+/* Add extra space after last paragraph in each list item */
+li p:last-child {
+    margin-bottom: 30px;
+}
+
+/* Remove extra space after very last list item */
+ul li:last-child {
+    margin-bottom: 0;
 }

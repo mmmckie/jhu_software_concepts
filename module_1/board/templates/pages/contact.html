@@ -3,7 +3,17 @@
 {% block content %}
 <h2>Contact Information</h2>
 <ul>
-    <p><a href="mailto:mmckie2@jh.edu">Email</p>
-    <p><a href="https://www.linkedin.com/in/max-mckie-a086a0140/">LinkedIn</a></p>
+    <p>
+        <div class="email_icon">
+            <img src="{{ url_for('static', filename='email_icon.webp') }}" alt="email">
+        </div>
+             <a href="mailto:mmckie2@jh.edu">mmckie2@jh.edu</a>
+    </p>
+    <p>
+        <div class="linkedin_icon">
+            <img src="{{ url_for('static', filename='linkedin_icon.webp') }}" alt="linkedin">
+        </div>
+         <a href="https://www.linkedin.com/in/max-mckie-a086a0140/">LinkedIn</a>
+    </p>
 </ul>
 {% endblock %}
