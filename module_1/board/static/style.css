@@ -57,7 +57,7 @@ h1, h2, b {
 }
 
 .email_icon {
-    display: inline-block;
+    display: inline-block; /* Ensure icon is on same line as email address */
     vertical-align: middle;
 }
 
@@ -68,7 +68,7 @@ h1, h2, b {
 }
 
 .linkedin_icon {
-    display: inline-block;
+    display: inline-block; /* Ensure icon is on same line as LinkedIn link */
     vertical-align: middle;
 }
 
