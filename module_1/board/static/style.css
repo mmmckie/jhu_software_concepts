@@ -1,23 +1,24 @@
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
-    background-color: #4d4950;
-    color: #eaff0079;
+    background-color: #4d4950;  /* Light gray background */
+    color: #eaff0079;  /* Dark yellow text */
 }
 
-.navbar {
-    display: flex;
-    justify-content: flex-end;
-    background-color: #333;
-    padding: 10px;
+/* Make headers and bolded items stand out */
+h1, h2, b {
+    color: #ecff1edf;
 }
 
+/* Setting default navbar style for inactive pages */
 .navbar a {
     color: white;
     margin-left: 20px;
     text-decoration: none;
 }
 
+/* Setting active page highlight style on navbar */
 .navbar a.active {
     color: #eaff0079;
     font-weight: bold;
@@ -29,4 +30,20 @@ body {
 
 .home-container {
     display: flex;
+}
+
+/* Making sure bio isn't squished, takes up adequate space on screen */
+.bio {
+    width: 80%;
+}
+
+.photo img {
+    width: 200px;        /* Control width */
+    height: auto;        /* Keeps aspect ratio */
+
+}
+
+/* Setting hyperlink color */
+a {
+    color: #02cb8c;
 }
