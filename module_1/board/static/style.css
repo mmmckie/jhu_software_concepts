@@ -27,7 +27,7 @@ h1, h2, b {
 
 /* Setting active page highlight style on navbar */
 .navbar a.active {
-    color: #eaff0079;
+    color: #9dff004f;
     font-weight: bold;
 }
 
