@@ -11,6 +11,13 @@ h1, h2, b {
     color: #ecff1edf;
 }
 
+.navbar {
+    display: flex;
+    justify-content: flex-end;
+    background-color: #333;
+    padding: 10px;
+}
+
 /* Setting default navbar style for inactive pages */
 .navbar a {
     color: white;
