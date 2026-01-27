@@ -11,14 +11,24 @@ import time
 
 
 BASE_URL = 'https://www.thegradcafe.com'
-NUM_PAGES_OF_DATA = 1500
+NUM_PAGES_OF_DATA = 2000
 MAX_WORKERS = 10 # MAX_WORKERS = 10 is a safe "polite" starting point. 
                  # Increase to 20 or 30 if the server handles it well.
+DISALLOWED_PAGES = ['/cgi-bin/',
+                    '/index-ad-test.php']
 
+def _is_restricted_path(url):
+    '''Checks for URL paths restricted by robots.txt'''
+    for restricted_path in DISALLOWED_PAGES:
+        if restricted_path in url:
+            return True
+    return False
 
 def _fetch_table_page(page_num):
     """Fetches a single page and parses the table rows."""
     url = f"{BASE_URL}/survey/?page={page_num}"
+    if _is_restricted_path(url):
+        return []
     try:
         # Use a timeout so the script doesn't hang forever
         response = requests.get(url, timeout=10)
@@ -28,7 +38,7 @@ def _fetch_table_page(page_num):
         table = soup.find('table')
         
         if not table:
-            return page_num, []
+            return []
 
         # Get all rows, skip the header
         rows = table.find_all('tr')[1:]
@@ -54,11 +64,11 @@ def _fetch_table_page(page_num):
         if tmp_row:
             parsed_data.append(tmp_row)
             
-        return page_num, parsed_data
+        return parsed_data
 
     except Exception as e:
         print(f"Error on page {page_num}: {e}")
-        return page_num, []
+        return []
 
 
 def _scrape_table_fast(start_page=1, end_page=NUM_PAGES_OF_DATA):
@@ -73,7 +83,7 @@ def _scrape_table_fast(start_page=1, end_page=NUM_PAGES_OF_DATA):
         future_to_page = {executor.submit(_fetch_table_page, p): p for p in range(start_page, end_page + 1)}
         
         for future in future_to_page:
-            page_num, data = future.result()
+            data = future.result()
             
             if data:
                 all_results += data
@@ -133,6 +143,9 @@ def _create_raw_json(data):
 
 def _fetch_result_page(url, payload):
     """Fetches a single result and parses the data."""
+    if _is_restricted_path(url):
+        return {}
+    
     page_num = url.split('/')[-1]
 
     try:
