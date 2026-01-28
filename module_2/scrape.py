@@ -1,10 +1,6 @@
-import requests
 import urllib
-from urllib import error, request
 
 from bs4 import BeautifulSoup
-import re
-import json
 
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -31,10 +27,10 @@ def _fetch_table_page(page_num):
         return []
     try:
         # Use a timeout so the script doesn't hang forever
-        response = requests.get(url, timeout=10)
-        response.raise_for_status() 
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
+        with urllib.request.urlopen(url, timeout=10) as response:
+            content = response.read() # Returns bytes
+            # BeautifulSoup handles the byte-to-string conversion automatically
+            soup = BeautifulSoup(content, 'html.parser')
         table = soup.find('table')
         
         if not table:
@@ -52,12 +48,11 @@ def _fetch_table_page(page_num):
                     parsed_data.append(tmp_row)
                 tmp_row = []
             
-            cells = [col.get_text().replace('\t','').strip() for col in row.find_all('td')]
+            cells = [col.get_text() for col in row.find_all('td')]
             link = row.find('a')
             if link:
                 link = link.attrs['href']
                 tmp_row.insert(0, link)
-                # print(link)
             
             tmp_row.extend(cells)
             
@@ -65,6 +60,9 @@ def _fetch_table_page(page_num):
             parsed_data.append(tmp_row)
             
         return parsed_data
+    
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error {e.code} on page {page_num}")
 
     except Exception as e:
         print(f"Error on page {page_num}: {e}")
@@ -76,11 +74,10 @@ def _scrape_table_fast(start_page=1, end_page=NUM_PAGES_OF_DATA):
     
     all_results = []
     
-    # max_workers=10 is a safe "polite" starting point. 
-    # Increase to 20 or 30 if the server handles it well.
     with ThreadPoolExecutor(max_workers= MAX_WORKERS) as executor:
         # Map the function to the range of pages
-        future_to_page = {executor.submit(_fetch_table_page, p): p for p in range(start_page, end_page + 1)}
+        future_to_page = {executor.submit(_fetch_table_page, p):
+                          p for p in range(start_page, end_page + 1)}
         
         for future in future_to_page:
             data = future.result()
@@ -91,7 +88,7 @@ def _scrape_table_fast(start_page=1, end_page=NUM_PAGES_OF_DATA):
     return all_results 
 
 
-def _create_raw_json(data):
+def _get_raw_payloads(data):
     '''
     Takes the result URLS and some fields from the tables on each page,
     creates the initial payload, then fills it in using the results page.
@@ -100,45 +97,39 @@ def _create_raw_json(data):
     all_payloads = {}
     for row in data:
         payload = {
-                'program': '', #
-                'university': '', #
-                'comments': '', #
-                'date added': '', ##############
-                'url': '', #
-                'application status': '', #
-                'application status date': '', #
-                'program start': '', #############
-                'US/International': '', #
-                'GRE': '', #
-                'GRE V': '', #
-                'degree': '', #
-                'GPA': '', #
-                'GRE AW': '' #
+                'university': '',
+                'program': '',
+                'degree': '',
+                'term': '',
+                'date added': '',
+                'url': '',
+                'application status': '',
+                'application status date': '',
+                'comments': '',
+                'US/International': '',
+                'GPA': '',
+                'GRE': '',
+                'GRE V': '',
+                'GRE AW': ''
             }
         
         try:
+            # These are the only three entries needed from the table on /survey/
+            # The rest of the fields are easier to parse from /result/
             url = BASE_URL + row[0]
             payload['url'] = url
             payload['date added'] = row[3]
-            
-            bubble_fields = row[6]
-            pattern = r'[^\n]+'
-            matches = re.findall(pattern, bubble_fields)
-            filtered_matches = [m for m in matches if 'fall' in m.lower() or 'spring' in m.lower()]
-            payload['program start'] = filtered_matches[0]
-            
+            payload['term'] = row[6]            
             all_payloads[url] = payload
    
         except:
             # print(f'Invalid row format, skipping: {row}')
             continue
 
-
     all_results = _scrape_results_fast(list(all_payloads.keys()), all_payloads)
     print(f"FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY")
-    # print(all_results[:5])
-    with open('applicant_data.json', 'w') as f:
-        json.dump(all_results, f)
+
+    return all_results    
 
 
 def _fetch_result_page(url, payload):
@@ -149,26 +140,28 @@ def _fetch_result_page(url, payload):
     page_num = url.split('/')[-1]
 
     try:
-        # Use a timeout so the script doesn't hang forever
-        response = requests.get(url, timeout=10)
-        response.raise_for_status() 
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # urllib.request.urlopen acts as a context manager
+        with urllib.request.urlopen(url, timeout=10) as response:
+            content = response.read() # Returns bytes
+            # BeautifulSoup handles the byte-to-string conversion automatically
+            soup = BeautifulSoup(content, 'html.parser')
         entries = soup.find('dl').find_all('div')
         
         if not entries:
             return {}
         
-        # Parse the rows immediately into the clean format
-        payload = {'url': url}
+        # Parse the entries and store raw data in the payload dict, then return
+        payload['url'] = url
         for i, entry in enumerate(entries):
             if i in [0, 1, 2, 3, 4, 5, 6, 8]:
+                
+                # Check that the field has text content to avoid errors
                 field_contents = entry.find('dd')
                 if field_contents:
-                    field_contents = field_contents.get_text().replace('\n','').replace('\t','')
+                    field_contents = field_contents.get_text()
                 else:
                     continue
-                # print(i, field_contents)
+
                 if i == 0:
                     payload['university'] = field_contents
                 elif i == 1:
@@ -180,23 +173,25 @@ def _fetch_result_page(url, payload):
                 elif i == 4:
                     payload['application status'] = field_contents
                 elif i == 5:
-                    pattern = r'[^0-9/]'
-                    clean_date = re.sub(pattern, '', field_contents)
-                    payload['application status date'] = clean_date
+                    payload['application status date'] = field_contents
                 elif i == 6:
                     payload['GPA'] = field_contents
                 elif i == 8:
                     payload['comments'] = field_contents
-            elif i == 7:
+            
+            elif i == 7: # The GRE scores have a slightly different format
                 field_contents = [e for e in entry.find_all('li')]
                 spans = [e.find('span').next_sibling.next_sibling for e in field_contents]
-                field_contents = [s.get_text().strip() for s in spans]
+                field_contents = [s.get_text() for s in spans]
                 payload['GRE'] = field_contents[0]
                 payload['GRE V'] = field_contents[1]
                 payload['GRE AW'] = field_contents[2]
             
         return payload
     
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error {e.code} on page {page_num}")
+
     except Exception as e:
         print(f"Error on page {page_num}: {e}")
         return {}
@@ -209,7 +204,8 @@ def _scrape_results_fast(urls: list, all_payloads):
 
     with ThreadPoolExecutor(max_workers= MAX_WORKERS) as executor:
         # Map the function to the range of pages
-        future_to_page = {executor.submit(_fetch_result_page, u, all_payloads[u]): u for u in urls}
+        future_to_page = {executor.submit(_fetch_result_page, u, all_payloads[u]):
+                           u for u in urls}
         
         for future in future_to_page:
             data = future.result()
@@ -224,13 +220,15 @@ def scrape_data():
 
     t_start = time.time()
     collected_rows = _scrape_table_fast()
-    t_end = time.time()
+    t1 = time.time()
 
-    print(f'Collected {len(collected_rows)} records in {t_end - t_start:.02f} secs')
+    print(f'Collected {len(collected_rows)} records in {t1 - t_start:.02f} secs')
 
-    _create_raw_json(collected_rows)
-    t_end = time.time()
-    print(f'Finished creating initial JSON in {t_end - t_start:.02f} secs')
+    raw_payloads = _get_raw_payloads(collected_rows)
+    t2 = time.time()
+
+    print(f'Assembled raw payloads in {t2 - t1:.02f} secs')
+    return raw_payloads
 
 if __name__ == '__main__':
     scrape_data()
