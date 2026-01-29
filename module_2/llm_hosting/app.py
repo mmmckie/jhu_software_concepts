@@ -162,12 +162,21 @@ FEW_SHOTS: List[Tuple[Dict[str, str], Dict[str, str]]] = [
         },
     ),
     (
-    {"program": "Bio-med sci", "university": "SUNY SB"},
+    {"program": "Bio-med sci",
+     "university": "SUNY SB"},
     {
         "standardized_program": "Biomedical Sciences",
         "standardized_university": "Stony Brook University, The State University of New York",
     }
-)
+    ),
+    (
+    {"program": "clinical psych",
+     "university": "MIT"},
+    {
+        "standardized_program": "Clinical Psychology",
+        "standardized_university": "Massachusetts Institute of Technology",
+    }
+    ),
 ]
 
 # SYSTEM_PROMPT = (
@@ -286,13 +295,13 @@ def _post_normalize_program(prog: str) -> str:
 def _post_normalize_university(uni: str) -> str:
     """Expand abbreviations, apply common fixes, capitalization, and canonical map."""
     u = (uni or "").strip()
-
+    
     # Abbreviations
     for pat, full in ABBREV_UNI.items():
         if re.fullmatch(pat, u):
             u = full
             break
-
+    
     # Common spelling fixes
     u = COMMON_UNI_FIXES.get(u, u)
 
@@ -307,7 +316,7 @@ def _post_normalize_university(uni: str) -> str:
     return match or u or "Unknown"
 
 
-def _call_llm(program_text: str) -> Dict[str, str]:
+def _call_llm(program_text: str, school_text: str) -> Dict[str, str]:
     """Query the tiny LLM and return standardized fields."""
     llm = _load_llm()
 
@@ -325,7 +334,7 @@ def _call_llm(program_text: str) -> Dict[str, str]:
     messages.append(
         {
             "role": "user",
-            "content": json.dumps({"program": program_text}, ensure_ascii=False),
+            "content": json.dumps({"program": program_text, "university": school_text}, ensure_ascii=False),
         }
     )
 
@@ -408,7 +417,8 @@ def _cli_process_file(
     try:
         for row in rows:
             program_text = (row or {}).get("program") or ""
-            result = _call_llm(program_text)
+            school_text = (row or {}).get("university") or ""
+            result = _call_llm(program_text, school_text)
             row["llm-generated-program"] = result["standardized_program"]
             row["llm-generated-university"] = result["standardized_university"]
 

@@ -7,12 +7,13 @@ import time
 
 
 BASE_URL = 'https://www.thegradcafe.com'
-NUM_PAGES_OF_DATA = 2#000
+NUM_PAGES_OF_DATA = 2000
 MAX_WORKERS = 10 # MAX_WORKERS = 10 is a safe "polite" starting point. 
                  # Increase to 20 or 30 if the server handles it well.
 DISALLOWED_PAGES = ['/cgi-bin/',
                     '/index-ad-test.php']
-# This header makes you look like a standard Chrome browser
+
+# This header makes the scraper look like a standard Chrome browser
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
@@ -226,14 +227,10 @@ def _scrape_results_fast(urls: list, all_payloads):
 def scrape_data():
     "Pulls admissions data from GradCafe."
 
-    t_start = time.time()
-    collected_rows = _scrape_table_fast()
     t1 = time.time()
-
-    print(f'Collected {len(collected_rows)} records in {t1 - t_start:.02f} secs')
-
+    collected_rows = _scrape_table_fast()
     raw_payloads = _get_raw_payloads(collected_rows)
     t2 = time.time()
 
-    print(f'Assembled raw payloads in {t2 - t1:.02f} secs')
+    print(f'Collected {len(raw_payloads)} raw payloads in {t2 - t1:.02f} secs')
     return raw_payloads

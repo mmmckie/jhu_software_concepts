@@ -170,6 +170,10 @@ Kansas State University
 Oklahoma State University
 University of Missouri–Kansas City
 University of Missouri–St. Louis
+Touro University
+Long Island University
+Pratt Institute
+Carlow University
 
 McGill University
 University of Toronto
@@ -343,6 +347,7 @@ University of Turin
 University of Trento
 Scuola Normale Superiore di Pisa
 Sant’Anna School of Advanced Studies
+Bocconi University
 
 KU Leuven
 Ghent University
@@ -920,6 +925,7 @@ Lewis & Clark College
 Willamette University
 University of Portland
 Oregon Institute of Technology
+Pacific University
 
 Temple University
 Drexel University
