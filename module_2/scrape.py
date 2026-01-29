@@ -1,5 +1,5 @@
-import urllib
-
+from urllib.request import urlopen
+from urllib import error, request
 from bs4 import BeautifulSoup
 
 from concurrent.futures import ThreadPoolExecutor
@@ -7,12 +7,15 @@ import time
 
 
 BASE_URL = 'https://www.thegradcafe.com'
-NUM_PAGES_OF_DATA = 2000
+NUM_PAGES_OF_DATA = 2#000
 MAX_WORKERS = 10 # MAX_WORKERS = 10 is a safe "polite" starting point. 
                  # Increase to 20 or 30 if the server handles it well.
 DISALLOWED_PAGES = ['/cgi-bin/',
                     '/index-ad-test.php']
-
+# This header makes you look like a standard Chrome browser
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+}
 def _is_restricted_path(url):
     '''Checks for URL paths restricted by robots.txt'''
     for restricted_path in DISALLOWED_PAGES:
@@ -25,9 +28,12 @@ def _fetch_table_page(page_num):
     url = f"{BASE_URL}/survey/?page={page_num}"
     if _is_restricted_path(url):
         return []
+    
     try:
+        # Create a Request object with the headers
+        req = request.Request(url, headers=HEADERS)
         # Use a timeout so the script doesn't hang forever
-        with urllib.request.urlopen(url, timeout=10) as response:
+        with urlopen(req, timeout=10) as response:
             content = response.read() # Returns bytes
             # BeautifulSoup handles the byte-to-string conversion automatically
             soup = BeautifulSoup(content, 'html.parser')
@@ -61,7 +67,7 @@ def _fetch_table_page(page_num):
             
         return parsed_data
     
-    except urllib.error.HTTPError as e:
+    except error.HTTPError as e:
         print(f"HTTP Error {e.code} on page {page_num}")
 
     except Exception as e:
@@ -140,8 +146,11 @@ def _fetch_result_page(url, payload):
     page_num = url.split('/')[-1]
 
     try:
+        # Create a Request object with the headers
+        req = request.Request(url, headers=HEADERS)
+
         # urllib.request.urlopen acts as a context manager
-        with urllib.request.urlopen(url, timeout=10) as response:
+        with urlopen(req, timeout=10) as response:
             content = response.read() # Returns bytes
             # BeautifulSoup handles the byte-to-string conversion automatically
             soup = BeautifulSoup(content, 'html.parser')
@@ -189,7 +198,7 @@ def _fetch_result_page(url, payload):
             
         return payload
     
-    except urllib.error.HTTPError as e:
+    except error.HTTPError as e:
         print(f"HTTP Error {e.code} on page {page_num}")
 
     except Exception as e:
@@ -217,7 +226,6 @@ def _scrape_results_fast(urls: list, all_payloads):
 def scrape_data():
     "Pulls admissions data from GradCafe."
 
-
     t_start = time.time()
     collected_rows = _scrape_table_fast()
     t1 = time.time()
@@ -229,6 +237,3 @@ def scrape_data():
 
     print(f'Assembled raw payloads in {t2 - t1:.02f} secs')
     return raw_payloads
-
-if __name__ == '__main__':
-    scrape_data()

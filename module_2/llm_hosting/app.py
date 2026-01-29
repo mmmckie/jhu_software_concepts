@@ -68,47 +68,149 @@ COMMON_PROG_FIXES: Dict[str, str] = {
 }
 
 # ---------------- Few-shot prompt ----------------
-SYSTEM_PROMPT = (
-    "You are a data cleaning assistant. Standardize degree program and university "
-    "names.\n\n"
-    "Rules:\n"
-    "- Input provides a single string under key `program` that may contain both "
-    "program and university.\n"
-    "- Split into (program name, university name).\n"
-    "- Trim extra spaces and commas.\n"
-    '- Expand obvious abbreviations (e.g., "McG" -> "McGill University", '
-    '"UBC" -> "University of British Columbia").\n'
-    "- Use Title Case for program; use official capitalization for university "
-    "names (e.g., \"University of X\").\n"
-    '- Ensure correct spelling (e.g., "McGill", not "McGiill").\n'
-    '- If university cannot be inferred, return "Unknown".\n\n'
-    "Return JSON ONLY with keys:\n"
-    "  standardized_program, standardized_university\n"
-)
+# SYSTEM_PROMPT = (
+#     "You are a data cleaning assistant. Standardize degree program and university "
+#     "names.\n\n"
+#     "Rules:\n"
+#     "- Input provides 'program' and 'university' in their respective fields.\n"
+#     "- Trim extra spaces and commas.\n"
+#     '- Expand obvious abbreviations (e.g., "McG" -> "McGill University", '
+#     '"UBC" -> "University of British Columbia").\n'
+#     "- Use Title Case for program; use official capitalization for university "
+#     "names (e.g., \"University of X\").\n"
+#     '- Ensure correct spelling (e.g., "McGill", not "McGiill").\n'
+#     '- If university cannot be inferred, return "Unknown".\n\n'
+#     "Return JSON ONLY with keys:\n"
+#     "  standardized_program, standardized_university\n"
+# )
 
+SYSTEM_PROMPT = (
+"### Role\n"
+"You are a precise Data Normalization Specialist. Your task is to clean and standardize academic data from The GradCafe.\n"
+"### Task\n"
+"Standardize the 'program' and 'university' fields into their most complete, formal academic versions.\n"
+"### Rules for Standardization\n"
+"1. Program Name:\n"
+   "- Convert to Title Case (e.g., 'physics' -> 'Physics').\n"
+   "- Expand abbreviations (e.g., 'PoliSci' -> 'Political Science', 'Mech E' -> 'Mechanical Engineering', 'CS' -> 'Computer Science').\n"
+   "- Remove irrelevant details like 'Interdisciplinary' or 'Department of' unless it is part of the formal name.\n"
+
+"2. University Name:\n"
+   "- Use the full, formal name (e.g., 'U of T' -> 'University of Toronto').\n"
+   "- Correct common typos (e.g., 'McGiill' -> 'McGill University').\n"
+   "- Standardize 'UOfX' or 'U of X' to 'University of X'.\n"
+   "- If the name is ambiguous (e.g., 'UofA' could be Arizona or Alberta), prioritize the most likely North American institution unless context suggests otherwise.\n"
+
+"### Constraints\n"
+"- DO NOT add conversational filler or commentary.\n"
+"- If the university is missing or impossible to determine, return 'Unknown'.\n"
+
+"### Output Format\n"
+"Return JSON ONLY with exactly these two keys:\n"
+"{\n"
+  "\"standardized_program\": \"<Clean Name>\",\n"
+  "\"standardized_university\": \"<Clean Name>\"\n"
+"}"
+)
 FEW_SHOTS: List[Tuple[Dict[str, str], Dict[str, str]]] = [
     (
-        {"program": "Information Studies, McGill University"},
+        {"program": "Information Studies",
+         "university": "McGill University"},
         {
             "standardized_program": "Information Studies",
             "standardized_university": "McGill University",
         },
     ),
     (
-        {"program": "Information, McG"},
+        {"program": "Information",
+         "university": "McG"},
         {
             "standardized_program": "Information Studies",
             "standardized_university": "McGill University",
         },
     ),
     (
-        {"program": "Mathematics, University Of British Columbia"},
+        {"program": "Mathematics",
+         "university": "University Of British Columbia"},
         {
             "standardized_program": "Mathematics",
             "standardized_university": "University of British Columbia",
         },
     ),
+    (
+        {"program": "physics",
+         "university": "UofA"},
+        {
+            "standardized_program": "Physics",
+            "standardized_university": "University of Arizona",
+        },
+    ),
+    (
+        {"program": "PoliSci",
+         "university": "Georgetown"},
+        {
+            "standardized_program": "Political Science",
+            "standardized_university": "Georgetown University",
+        },
+    ),
+    (
+        {"program": "Mech E",
+         "university": "U Rochester"},
+        {
+            "standardized_program": "Mechanical Engineering",
+            "standardized_university": "University of Rochester",
+        },
+    ),
+    (
+    {"program": "Bio-med sci", "university": "SUNY SB"},
+    {
+        "standardized_program": "Biomedical Sciences",
+        "standardized_university": "Stony Brook University, The State University of New York",
+    }
+)
 ]
+
+# SYSTEM_PROMPT = (
+#     "You are a data cleaning assistant. Standardize degree program and university "
+#     "names.\n\n"
+#     "Rules:\n"
+#     "- Input provides a single string under key `program` that may contain both "
+#     "program and university.\n"
+#     "- Split into (program name, university name).\n"
+#     "- Trim extra spaces and commas.\n"
+#     '- Expand obvious abbreviations (e.g., "McG" -> "McGill University", '
+#     '"UBC" -> "University of British Columbia").\n'
+#     "- Use Title Case for program; use official capitalization for university "
+#     "names (e.g., \"University of X\").\n"
+#     '- Ensure correct spelling (e.g., "McGill", not "McGiill").\n'
+#     '- If university cannot be inferred, return "Unknown".\n\n'
+#     "Return JSON ONLY with keys:\n"
+#     "  standardized_program, standardized_university\n"
+# )
+
+# FEW_SHOTS: List[Tuple[Dict[str, str], Dict[str, str]]] = [
+#     (
+#         {"program": "Information Studies, McGill University"},
+#         {
+#             "standardized_program": "Information Studies",
+#             "standardized_university": "McGill University",
+#         },
+#     ),
+#     (
+#         {"program": "Information, McG"},
+#         {
+#             "standardized_program": "Information Studies",
+#             "standardized_university": "McGill University",
+#         },
+#     ),
+#     (
+#         {"program": "Mathematics, University Of British Columbia"},
+#         {
+#             "standardized_program": "Mathematics",
+#             "standardized_university": "University of British Columbia",
+#         },
+#     ),
+# ]
 
 _LLM: Llama | None = None
 
@@ -295,7 +397,9 @@ def _cli_process_file(
 
     sink = sys.stdout if to_stdout else None
     if not to_stdout:
-        out_path = out_path or (in_path + ".jsonl")
+        # Get rid of filename extension before appending .jsonl
+        # in_path = re.sub(r'\..*', '', in_path)
+        out_path = out_path or ('llm_extend_applicant_data.jsonl')
         mode = "a" if append else "w"
         sink = open(out_path, mode, encoding="utf-8")
 
