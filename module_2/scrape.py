@@ -76,24 +76,49 @@ def _fetch_table_page(page_num):
         return []
 
 
-def _scrape_table_fast(start_page=1, end_page=NUM_PAGES_OF_DATA):
-    """Fetches several pages at a time to collect all data in a list."""
-    
+def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
+    """
+    Generic thread manager for scraping.
+    :param worker_func: The function to execute (_fetch_table_page or _fetch_result_page)
+    :param tasks: The list or range of items to process
+    :param is_mapping: Boolean, set to True if payloads need to be mapped from a dict
+    """
     all_results = []
     
-    with ThreadPoolExecutor(max_workers= MAX_WORKERS) as executor:
-        # Map the function to the range of pages
-        future_to_page = {executor.submit(_fetch_table_page, p):
-                          p for p in range(start_page, end_page + 1)}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        if is_mapping:
+            # Logic for _fetch_result_page
+            future_to_task = {
+                executor.submit(worker_func, u, all_payloads[u]): u 
+                for u in tasks
+            }
+        else:
+            # Logic for _fetch_table_page
+            future_to_task = {
+                executor.submit(worker_func, t): t 
+                for t in tasks
+            }
         
-        for future in future_to_page:
-            data = future.result()
-            
-            if data:
-                all_results += data
+        for future in future_to_task:
+            try:
+                data = future.result()
+                if data:
+                    # Use extend for lists (table rows) and append for single objects (details)
+                    if isinstance(data, list):
+                        all_results.extend(data)
+                    else:
+                        all_results.append(data)
+            except Exception as e:
+                task = future_to_task[future]
+                print(f"Task {task} failed with: {e}")
 
-    return all_results 
+    return all_results
 
+# # 1. Scrape the table pages
+# table_data = _concurrent_scraper(_fetch_table_page, range(1, NUM_PAGES_OF_DATA + 1))
+# result_details = _concurrent_scraper(_fetch_result_page, urls, is_mapping=True, all_payloads=all_payloads)
+
+# # 2. Scrape the individual result details
 
 def _get_raw_payloads(data):
     '''
@@ -133,7 +158,12 @@ def _get_raw_payloads(data):
             # print(f'Invalid row format, skipping: {row}')
             continue
 
-    all_results = _scrape_results_fast(list(all_payloads.keys()), all_payloads)
+    all_urls = list(all_payloads.keys())
+    all_results = _concurrent_scraper(_fetch_result_page, all_urls,
+                                         is_mapping=True, 
+                                         all_payloads=all_payloads)
+
+    # all_results = _scrape_results_fast(list(all_payloads.keys()), all_payloads)
     print(f"FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY")
 
     return all_results    
@@ -207,28 +237,16 @@ def _fetch_result_page(url, payload):
         return {}
 
 
-def _scrape_results_fast(urls: list, all_payloads):
-    """Fetches several pages at a time to collect all data in a list."""
-    
-    all_results = []
 
-    with ThreadPoolExecutor(max_workers= MAX_WORKERS) as executor:
-        # Map the function to the range of pages
-        future_to_page = {executor.submit(_fetch_result_page, u, all_payloads[u]):
-                           u for u in urls}
-        
-        for future in future_to_page:
-            data = future.result()
-            if data:
-                all_results.append(data)
-
-    return all_results
 
 def scrape_data():
     "Pulls admissions data from GradCafe."
 
     t1 = time.time()
-    collected_rows = _scrape_table_fast()
+    # collected_rows = _scrape_table_fast()
+    collected_rows = _concurrent_scraper(_fetch_table_page,
+                                         range(1, NUM_PAGES_OF_DATA + 1))
+
     raw_payloads = _get_raw_payloads(collected_rows)
     t2 = time.time()
 
