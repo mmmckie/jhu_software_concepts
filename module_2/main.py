@@ -14,7 +14,7 @@ def _run_LLM_pipeline():
         cmd_args = ["--file", "../applicant_data.json", "--stdout"]
 
         # Open the output file in write mode and trigger app.py
-        with open("llm_extended_applicant_data.jsonl", "w") as output_file:
+        with open("llm_extend_applicant_data.jsonl", "w") as output_file:
             subprocess.run(
                 ["python", "app.py"] + cmd_args,
                 cwd="llm_hosting",
