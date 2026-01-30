@@ -7,7 +7,7 @@ ________________________________________________________________________________
 scrape.py-
 This module first imports the requisite libraries: urllib for URL 
 handling and making requests, BeautifulSoup for parsing/extracting HTML elements,
-concurrent.futures.ThreadPoolExecutor for paralellization, and time for timing
+concurrent.futures.ThreadPoolExecutor for parallelization, and time for timing
 how long it takes to gather all the raw data. It then defines a few global variables,
 including the base URL for TheGradCafe, the number of pages of survey results to
 scrape, the maximum number of workers allowed for pulling data in parallel, a

@@ -5,6 +5,7 @@ import json
 
 def _remove_whitespace(str_):
     '''Remove any instances of \n or \t characters.'''
+
     pattern = '[\n\t]'
     output = re.sub(pattern, '', str_)
     return output
@@ -19,20 +20,21 @@ def clean_data(raw_data: list):
 
     Returns:
     cleaned_data: list of dicts containing cleaned entries
-    
     """
+
     cleaned_data = []
     for payload in raw_data:
-        # Find term start by finding fields surrounded by \n sequences
+        # Find term start date by finding entries surrounded by \n sequences in ['term']
         term_start = payload['term']
         pattern = r'[^\n]+'
         matches = re.findall(pattern, term_start)
+
         # Only retain matches that have 'fall' or 'spring' in them
         # Will get only 1 result representing term start in the list
         filtered_matches = [m for m in matches if 'fall' in m.lower() or 'spring' in m.lower()]
         term = filtered_matches[0]
-
-        # Remove extra newline and tab sequences from all other fields, and set start term
+        
+        # Create new payload without newline/tab sequences and set start term
         new_payload = {k: _remove_whitespace(v) for k, v in payload.items()}
         new_payload['term'] = term
 
@@ -58,11 +60,13 @@ def clean_data(raw_data: list):
 
         cleaned_data.append(new_payload)
 
+    # Return list of cleaned payloads
     return cleaned_data
 
 
 def save_data(cleaned_payloads):
     "Saves cleaned data into applicant_data.json."
+    
     with open('applicant_data.json', 'w') as f:
         json.dump(cleaned_payloads, f)
 

@@ -10,9 +10,10 @@ def _run_LLM_pipeline():
     '''
 
     try:
+        # Cmd line args to execute when launching app.py
         cmd_args = ["--file", "../applicant_data.json", "--stdout"]
 
-        # Open the file in write mode
+        # Open the output file in write mode and trigger app.py
         with open("llm_extended_applicant_data.jsonl", "w") as output_file:
             subprocess.run(
                 ["python", "app.py"] + cmd_args,
@@ -28,13 +29,20 @@ def _run_LLM_pipeline():
 
 
 def main():
+
+    # Collect raw data in JSON format from TheGradCafe
     raw_data = scrape_data()
 
+    # Clean data to obtain clear, consistent formatting
     cleaned_data = clean_data(raw_data)
 
+    # Write cleaned JSON entries to applicant_data.json
     save_data(cleaned_data)
 
+    # Trigger local LLM to standardize program/university fields and write 
+    # output to llm_extended_applicant_data.jsonl
     _run_LLM_pipeline()
+
 
 if __name__ == '__main__':
     main()

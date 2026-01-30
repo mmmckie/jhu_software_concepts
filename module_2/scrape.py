@@ -7,9 +7,15 @@ import time
 
 
 BASE_URL = 'https://www.thegradcafe.com'
+
+# 21 records per page should provide ~40k results
 NUM_PAGES_OF_DATA = 2000
-MAX_WORKERS = 10 # MAX_WORKERS = 10 is a safe "polite" starting point. 
-                 # Increase to 20 or 30 if the server handles it well.
+
+# MAX_WORKERS = 10 is a safe "polite" starting point.
+# Increase to 20 or 30 if the server handles it well.
+MAX_WORKERS = 10
+
+# Anything restricted by robots.txt
 DISALLOWED_PAGES = ['/cgi-bin/',
                     '/index-ad-test.php']
 
@@ -17,6 +23,8 @@ DISALLOWED_PAGES = ['/cgi-bin/',
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
+
+
 def _is_restricted_path(url):
     '''Checks for URL paths restricted by robots.txt'''
     for restricted_path in DISALLOWED_PAGES:
@@ -24,8 +32,18 @@ def _is_restricted_path(url):
             return True
     return False
 
+
 def _fetch_table_page(page_num):
-    """Fetches a single page and parses the table rows."""
+    """
+    Fetches a single page and parses the table rows.
+    
+    Arguments:
+    page_num: int designating which /survey/ page to gather data from
+    
+    Returns:
+    parsed_data: list of lists containing gathered information from each page entry
+    """
+
     url = f"{BASE_URL}/survey/?page={page_num}"
     if _is_restricted_path(url):
         return []
@@ -35,34 +53,45 @@ def _fetch_table_page(page_num):
         req = request.Request(url, headers=HEADERS)
         # Use a timeout so the script doesn't hang forever
         with urlopen(req, timeout=10) as response:
-            content = response.read() # Returns bytes
-            # BeautifulSoup handles the byte-to-string conversion automatically
+            # Create soup object from response bytes
+            content = response.read()
             soup = BeautifulSoup(content, 'html.parser')
         table = soup.find('table')
         
+        # If nothing is found, return
         if not table:
             return []
 
-        # Get all rows, skip the header
+        # Get all rows after skipping the header row
         rows = table.find_all('tr')[1:]
         
-        # Parse the rows immediately into the clean format
+        # Parse rows and combine the data from rows that are part of the same record
         parsed_data = []
         tmp_row = []
         for row in rows:
+            # A <tr> tag with no attrs indicates the first row of a new record
             if len(row.attrs) == 0:
+                # If tmp_row contains data, store it in parsed_data then clear it
+                # It is empty here when the very first row is being processed
                 if tmp_row:
                     parsed_data.append(tmp_row)
+                
                 tmp_row = []
             
+            # Extract the information from the columns in each row
             cells = [col.get_text() for col in row.find_all('td')]
+            
+            # Find the link to the corresponding /result/{result_number} path
+            # And insert it at index 0
             link = row.find('a')
             if link:
                 link = link.attrs['href']
                 tmp_row.insert(0, link)
             
+            # Add all gathered information in this row to tmp_row
             tmp_row.extend(cells)
-            
+        
+        # Make sure the very last row of data is added to parsed_data
         if tmp_row:
             parsed_data.append(tmp_row)
             
@@ -78,32 +107,41 @@ def _fetch_table_page(page_num):
 
 def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
     """
-    Generic thread manager for scraping.
-    :param worker_func: The function to execute (_fetch_table_page or _fetch_result_page)
-    :param tasks: The list or range of items to process
-    :param is_mapping: Boolean, set to True if payloads need to be mapped from a dict
+    Generic thread manager for scraping with parallel threads.
+    
+    Arguments:
+    worker_func: The function to execute (_fetch_table_page or _fetch_result_page)
+    tasks: The list or range of items to process
+    is_mapping: Boolean, set to True if payloads need to be mapped from a dict
+
+    Returns:
+    all_results: list or list[Dict{str, str}] depending on which function is
+                 executed
     """
+
     all_results = []
     
+    # Set up ThreadPoolExecutor to handle each worker_func slightly differently
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         if is_mapping:
             # Logic for _fetch_result_page
             future_to_task = {
                 executor.submit(worker_func, u, all_payloads[u]): u 
                 for u in tasks
-            }
+                }
         else:
             # Logic for _fetch_table_page
             future_to_task = {
                 executor.submit(worker_func, t): t 
                 for t in tasks
-            }
+                }
         
+        # Collect results, print out any errors encountered and move on
         for future in future_to_task:
             try:
                 data = future.result()
                 if data:
-                    # Use extend for lists (table rows) and append for single objects (details)
+                    # Use extend for lists and append for dicts
                     if isinstance(data, list):
                         all_results.extend(data)
                     else:
@@ -114,17 +152,12 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
 
     return all_results
 
-# # 1. Scrape the table pages
-# table_data = _concurrent_scraper(_fetch_table_page, range(1, NUM_PAGES_OF_DATA + 1))
-# result_details = _concurrent_scraper(_fetch_result_page, urls, is_mapping=True, all_payloads=all_payloads)
-
-# # 2. Scrape the individual result details
 
 def _get_raw_payloads(data):
     '''
     Takes the result URLS and some fields from the tables on each page,
-    creates the initial payload, then fills it in using the results page.
-    Writes all results to json at end.
+    creates the initial payload, then fills in the remaining fields using the
+    results page. Writes all results to json at end.
     '''
     all_payloads = {}
     for row in data:
@@ -147,7 +180,7 @@ def _get_raw_payloads(data):
         
         try:
             # These are the only three entries needed from the table on /survey/
-            # The rest of the fields are easier to parse from /result/
+            # The rest of the fields are easier to parse from /result/ pages
             url = BASE_URL + row[0]
             payload['url'] = url
             payload['date added'] = row[3]
@@ -155,38 +188,44 @@ def _get_raw_payloads(data):
             all_payloads[url] = payload
    
         except:
-            # print(f'Invalid row format, skipping: {row}')
+            # Skip any malformed records
             continue
-
+    
+    # Need the URL from the survey table to pull that particular result page and
+    # gather the rest of the data for each record
     all_urls = list(all_payloads.keys())
     all_results = _concurrent_scraper(_fetch_result_page, all_urls,
                                          is_mapping=True, 
                                          all_payloads=all_payloads)
 
-    # all_results = _scrape_results_fast(list(all_payloads.keys()), all_payloads)
     print(f"FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY")
 
     return all_results    
 
 
 def _fetch_result_page(url, payload):
-    """Fetches a single result and parses the data."""
+    """Fetches a single result page and parses the data."""
+    
+    # Check for restricted URLs from robots.txt
     if _is_restricted_path(url):
         return {}
     
+    # Getting page number in case of error to print the specific page
     page_num = url.split('/')[-1]
 
     try:
         # Create a Request object with the headers
         req = request.Request(url, headers=HEADERS)
-
-        # urllib.request.urlopen acts as a context manager
+        # Use a timeout so the script doesn't hang forever
         with urlopen(req, timeout=10) as response:
-            content = response.read() # Returns bytes
-            # BeautifulSoup handles the byte-to-string conversion automatically
+            # Create soup object from response bytes
+            content = response.read()
             soup = BeautifulSoup(content, 'html.parser')
+        
+        # Get all the data fields on the page
         entries = soup.find('dl').find_all('div')
         
+        # Return if nothing found
         if not entries:
             return {}
         
@@ -201,7 +240,8 @@ def _fetch_result_page(url, payload):
                     field_contents = field_contents.get_text()
                 else:
                     continue
-
+                
+                # Data fields are always in the same order
                 if i == 0:
                     payload['university'] = field_contents
                 elif i == 1:
@@ -243,12 +283,14 @@ def scrape_data():
     "Pulls admissions data from GradCafe."
 
     t1 = time.time()
-    # collected_rows = _scrape_table_fast()
+    # Collect data from /survey/ pages
     collected_rows = _concurrent_scraper(_fetch_table_page,
                                          range(1, NUM_PAGES_OF_DATA + 1))
 
+    # Then collect data from /result/ pages
     raw_payloads = _get_raw_payloads(collected_rows)
     t2 = time.time()
 
+    # Print total number of records retrieved and time to execute, then return
     print(f'Collected {len(raw_payloads)} raw payloads in {t2 - t1:.02f} secs')
     return raw_payloads
