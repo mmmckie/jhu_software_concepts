@@ -33,7 +33,7 @@ def clean_data(raw_data: list):
         # Will get only 1 result representing term start in the list
         filtered_matches = [m for m in matches if 'fall' in m.lower() or 'spring' in m.lower()]
         term = filtered_matches[0]
-        
+
         # Create new payload without newline/tab sequences and set start term
         new_payload = {k: _remove_whitespace(v) for k, v in payload.items()}
         new_payload['term'] = term
@@ -66,7 +66,7 @@ def clean_data(raw_data: list):
 
 def save_data(cleaned_payloads):
     "Saves cleaned data into applicant_data.json."
-    
+
     with open('applicant_data.json', 'w') as f:
         json.dump(cleaned_payloads, f)
 

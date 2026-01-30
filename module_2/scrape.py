@@ -21,7 +21,8 @@ DISALLOWED_PAGES = ['/cgi-bin/',
 
 # This header makes the scraper look like a standard Chrome browser
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
 
@@ -47,7 +48,7 @@ def _fetch_table_page(page_num):
     url = f"{BASE_URL}/survey/?page={page_num}"
     if _is_restricted_path(url):
         return []
-    
+
     try:
         # Create a Request object with the headers
         req = request.Request(url, headers=HEADERS)
@@ -57,14 +58,14 @@ def _fetch_table_page(page_num):
             content = response.read()
             soup = BeautifulSoup(content, 'html.parser')
         table = soup.find('table')
-        
+
         # If nothing is found, return
         if not table:
             return []
 
         # Get all rows after skipping the header row
         rows = table.find_all('tr')[1:]
-        
+
         # Parse rows and combine the data from rows that are part of the same record
         parsed_data = []
         tmp_row = []
@@ -75,31 +76,31 @@ def _fetch_table_page(page_num):
                 # It is empty here when the very first row is being processed
                 if tmp_row:
                     parsed_data.append(tmp_row)
-                
+
                 tmp_row = []
-            
+
             # Extract the information from the columns in each row
             cells = [col.get_text() for col in row.find_all('td')]
-            
+
             # Find the link to the corresponding /result/{result_number} path
             # And insert it at index 0
             link = row.find('a')
             if link:
                 link = link.attrs['href']
                 tmp_row.insert(0, link)
-            
+
             # Add all gathered information in this row to tmp_row
             tmp_row.extend(cells)
-        
+
         # Make sure the very last row of data is added to parsed_data
         if tmp_row:
             parsed_data.append(tmp_row)
-            
+
         return parsed_data
-    
+
     except error.HTTPError as e:
         print(f"HTTP Error {e.code} on page {page_num}")
-
+        return []
     except Exception as e:
         print(f"Error on page {page_num}: {e}")
         return []
@@ -107,11 +108,11 @@ def _fetch_table_page(page_num):
 
 def _fetch_result_page(url, payload):
     """Fetches a single result page and parses the data."""
-    
+
     # Check for restricted URLs from robots.txt
     if _is_restricted_path(url):
         return {}
-    
+
     # Getting page number in case of error to print the specific page
     page_num = url.split('/')[-1]
 
@@ -123,26 +124,26 @@ def _fetch_result_page(url, payload):
             # Create soup object from response bytes
             content = response.read()
             soup = BeautifulSoup(content, 'html.parser')
-        
+
         # Get all the data fields on the page
         entries = soup.find('dl').find_all('div')
-        
+
         # Return if nothing found
         if not entries:
             return {}
-        
+
         # Parse the entries and store raw data in the payload dict, then return
         payload['url'] = url
         for i, entry in enumerate(entries):
             if i in [0, 1, 2, 3, 4, 5, 6, 8]:
-                
+
                 # Check that the field has text content to avoid errors
                 field_contents = entry.find('dd')
                 if field_contents:
                     field_contents = field_contents.get_text()
                 else:
                     continue
-                
+
                 # Data fields are always in the same order
                 if i == 0:
                     payload['university'] = field_contents
@@ -160,7 +161,7 @@ def _fetch_result_page(url, payload):
                     payload['GPA'] = field_contents
                 elif i == 8:
                     payload['comments'] = field_contents
-            
+
             elif i == 7: # The GRE scores have a slightly different format
                 field_contents = [e for e in entry.find_all('li')]
                 spans = [e.find('span').next_sibling.next_sibling for e in field_contents]
@@ -168,16 +169,16 @@ def _fetch_result_page(url, payload):
                 payload['GRE'] = field_contents[0]
                 payload['GRE V'] = field_contents[1]
                 payload['GRE AW'] = field_contents[2]
-            
+
         return payload
-    
+
     except error.HTTPError as e:
         print(f"HTTP Error {e.code} on page {page_num}")
-
+        return {}
     except Exception as e:
         print(f"Error on page {page_num}: {e}")
         return {}
-    
+
 
 def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
     """
@@ -194,7 +195,7 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
     """
 
     all_results = []
-    
+
     # Set up ThreadPoolExecutor to handle each worker_func slightly differently
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         if is_mapping:
@@ -209,7 +210,7 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
                 executor.submit(worker_func, t): t 
                 for t in tasks
                 }
-        
+
         # Collect results, print out any errors encountered and move on
         for future in future_to_task:
             try:
@@ -251,7 +252,7 @@ def _get_raw_payloads(data_rows):
                 'GRE V': '',
                 'GRE AW': ''
             }
-        
+
         try:
             # These are the only three entries needed from the table on /survey/
             # The rest of the fields are easier to parse from /result/ pages
@@ -260,11 +261,11 @@ def _get_raw_payloads(data_rows):
             payload['date added'] = row[3]
             payload['term'] = row[6]            
             all_payloads[url] = payload
-   
+
         except:
             # Skip any malformed records
             continue
-    
+
     # Need the URL from the survey table to pull that particular result page and
     # gather the rest of the data for each record
     all_urls = list(all_payloads.keys())
