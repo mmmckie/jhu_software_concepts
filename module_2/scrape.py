@@ -105,104 +105,6 @@ def _fetch_table_page(page_num):
         return []
 
 
-def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
-    """
-    Generic thread manager for scraping with parallel threads.
-    
-    Arguments:
-    worker_func: The function to execute (_fetch_table_page or _fetch_result_page)
-    tasks: The list or range of items to process
-    is_mapping: Boolean, set to True if payloads need to be mapped from a dict
-
-    Returns:
-    all_results: list or list[Dict{str, str}] depending on which function is
-                 executed
-    """
-
-    all_results = []
-    
-    # Set up ThreadPoolExecutor to handle each worker_func slightly differently
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        if is_mapping:
-            # Logic for _fetch_result_page
-            future_to_task = {
-                executor.submit(worker_func, u, all_payloads[u]): u 
-                for u in tasks
-                }
-        else:
-            # Logic for _fetch_table_page
-            future_to_task = {
-                executor.submit(worker_func, t): t 
-                for t in tasks
-                }
-        
-        # Collect results, print out any errors encountered and move on
-        for future in future_to_task:
-            try:
-                data = future.result()
-                if data:
-                    # Use extend for lists and append for dicts
-                    if isinstance(data, list):
-                        all_results.extend(data)
-                    else:
-                        all_results.append(data)
-            except Exception as e:
-                task = future_to_task[future]
-                print(f"Task {task} failed with: {e}")
-
-    return all_results
-
-
-def _get_raw_payloads(data):
-    '''
-    Takes the result URLS and some fields from the tables on each page,
-    creates the initial payload, then fills in the remaining fields using the
-    results page. Writes all results to json at end.
-    '''
-    all_payloads = {}
-    for row in data:
-        payload = {
-                'university': '',
-                'program': '',
-                'degree': '',
-                'term': '',
-                'date added': '',
-                'url': '',
-                'application status': '',
-                'application status date': '',
-                'comments': '',
-                'US/International': '',
-                'GPA': '',
-                'GRE': '',
-                'GRE V': '',
-                'GRE AW': ''
-            }
-        
-        try:
-            # These are the only three entries needed from the table on /survey/
-            # The rest of the fields are easier to parse from /result/ pages
-            url = BASE_URL + row[0]
-            payload['url'] = url
-            payload['date added'] = row[3]
-            payload['term'] = row[6]            
-            all_payloads[url] = payload
-   
-        except:
-            # Skip any malformed records
-            continue
-    
-    # Need the URL from the survey table to pull that particular result page and
-    # gather the rest of the data for each record
-    all_urls = list(all_payloads.keys())
-    all_results = _concurrent_scraper(_fetch_result_page, all_urls,
-                                         is_mapping=True, 
-                                         all_payloads=all_payloads)
-
-    print(f"FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY")
-
-    return all_results    
-
-
 def _fetch_result_page(url, payload):
     """Fetches a single result page and parses the data."""
     
@@ -275,8 +177,104 @@ def _fetch_result_page(url, payload):
     except Exception as e:
         print(f"Error on page {page_num}: {e}")
         return {}
+    
+
+def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
+    """
+    Generic thread manager for scraping with parallel threads.
+    
+    Arguments:
+    worker_func: The function to execute (_fetch_table_page or _fetch_result_page)
+    tasks: The list or range of items to process
+    is_mapping: Boolean, set to True if payloads need to be mapped from a dict
+
+    Returns:
+    all_results: list or list[Dict{str, str}] depending on which function is
+                 executed
+    """
+
+    all_results = []
+    
+    # Set up ThreadPoolExecutor to handle each worker_func slightly differently
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        if is_mapping:
+            # Logic for _fetch_result_page
+            future_to_task = {
+                executor.submit(worker_func, u, all_payloads[u]): u 
+                for u in tasks
+                }
+        else:
+            # Logic for _fetch_table_page
+            future_to_task = {
+                executor.submit(worker_func, t): t 
+                for t in tasks
+                }
+        
+        # Collect results, print out any errors encountered and move on
+        for future in future_to_task:
+            try:
+                data = future.result()
+                if data:
+                    # Use extend for lists and append for dicts
+                    if isinstance(data, list):
+                        all_results.extend(data)
+                    else:
+                        all_results.append(data)
+            except Exception as e:
+                task = future_to_task[future]
+                print(f"Task {task} failed with: {e}")
+
+    return all_results
 
 
+def _get_raw_payloads(data_rows):
+    '''
+    Takes the result URLS and some fields from the tables on each page,
+    creates the initial payload, then fills in the remaining fields using the
+    results page. Writes all results to json at end.
+    '''
+    all_payloads = {}
+    for row in data_rows:
+        payload = {
+                'university': '',
+                'program': '',
+                'degree': '',
+                'term': '',
+                'date added': '',
+                'url': '',
+                'application status': '',
+                'application status date': '',
+                'comments': '',
+                'US/International': '',
+                'GPA': '',
+                'GRE': '',
+                'GRE V': '',
+                'GRE AW': ''
+            }
+        
+        try:
+            # These are the only three entries needed from the table on /survey/
+            # The rest of the fields are easier to parse from /result/ pages
+            url = BASE_URL + row[0]
+            payload['url'] = url
+            payload['date added'] = row[3]
+            payload['term'] = row[6]            
+            all_payloads[url] = payload
+   
+        except:
+            # Skip any malformed records
+            continue
+    
+    # Need the URL from the survey table to pull that particular result page and
+    # gather the rest of the data for each record
+    all_urls = list(all_payloads.keys())
+    all_results = _concurrent_scraper(_fetch_result_page, all_urls,
+                                         is_mapping=True, 
+                                         all_payloads=all_payloads)
+
+    print(f"FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY")
+
+    return all_results    
 
 
 def scrape_data():

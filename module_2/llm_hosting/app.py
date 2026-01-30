@@ -67,23 +67,6 @@ COMMON_PROG_FIXES: Dict[str, str] = {
     "Info Studies": "Information Studies",
 }
 
-# ---------------- Few-shot prompt ----------------
-# SYSTEM_PROMPT = (
-#     "You are a data cleaning assistant. Standardize degree program and university "
-#     "names.\n\n"
-#     "Rules:\n"
-#     "- Input provides 'program' and 'university' in their respective fields.\n"
-#     "- Trim extra spaces and commas.\n"
-#     '- Expand obvious abbreviations (e.g., "McG" -> "McGill University", '
-#     '"UBC" -> "University of British Columbia").\n'
-#     "- Use Title Case for program; use official capitalization for university "
-#     "names (e.g., \"University of X\").\n"
-#     '- Ensure correct spelling (e.g., "McGill", not "McGiill").\n'
-#     '- If university cannot be inferred, return "Unknown".\n\n'
-#     "Return JSON ONLY with keys:\n"
-#     "  standardized_program, standardized_university\n"
-# )
-
 SYSTEM_PROMPT = (
 "### Role\n"
 "You are a precise Data Normalization Specialist. Your task is to clean and standardize academic data from The GradCafe.\n"
@@ -112,6 +95,7 @@ SYSTEM_PROMPT = (
   "\"standardized_university\": \"<Clean Name>\"\n"
 "}"
 )
+
 FEW_SHOTS: List[Tuple[Dict[str, str], Dict[str, str]]] = [
     (
         {"program": "Information Studies",
@@ -178,48 +162,6 @@ FEW_SHOTS: List[Tuple[Dict[str, str], Dict[str, str]]] = [
     }
     ),
 ]
-
-# SYSTEM_PROMPT = (
-#     "You are a data cleaning assistant. Standardize degree program and university "
-#     "names.\n\n"
-#     "Rules:\n"
-#     "- Input provides a single string under key `program` that may contain both "
-#     "program and university.\n"
-#     "- Split into (program name, university name).\n"
-#     "- Trim extra spaces and commas.\n"
-#     '- Expand obvious abbreviations (e.g., "McG" -> "McGill University", '
-#     '"UBC" -> "University of British Columbia").\n'
-#     "- Use Title Case for program; use official capitalization for university "
-#     "names (e.g., \"University of X\").\n"
-#     '- Ensure correct spelling (e.g., "McGill", not "McGiill").\n'
-#     '- If university cannot be inferred, return "Unknown".\n\n'
-#     "Return JSON ONLY with keys:\n"
-#     "  standardized_program, standardized_university\n"
-# )
-
-# FEW_SHOTS: List[Tuple[Dict[str, str], Dict[str, str]]] = [
-#     (
-#         {"program": "Information Studies, McGill University"},
-#         {
-#             "standardized_program": "Information Studies",
-#             "standardized_university": "McGill University",
-#         },
-#     ),
-#     (
-#         {"program": "Information, McG"},
-#         {
-#             "standardized_program": "Information Studies",
-#             "standardized_university": "McGill University",
-#         },
-#     ),
-#     (
-#         {"program": "Mathematics, University Of British Columbia"},
-#         {
-#             "standardized_program": "Mathematics",
-#             "standardized_university": "University of British Columbia",
-#         },
-#     ),
-# ]
 
 _LLM: Llama | None = None
 
