@@ -27,7 +27,7 @@ The <table> object containing all of the rows of data entries is then obtained
 using soup.find('table'), and if nothing is found then the function returns an
 empty list. If the table is found, then all the rows are retrieved with find_all('tr'),
 and the header row containing only column names is skipped via indexing. An
-empty list, 'parssed_data', is instantiated to contain all of the raw parsed data
+empty list, 'parsed_data', is instantiated to contain all of the raw parsed data
 from each entry, and another empty list 'tmp_row' is created for joining the data
 from multiple rows together if they are part of the same record. A for loop is
 created to iterate over each row collected from the table, and an if statement
@@ -42,7 +42,7 @@ in the row using list comprehension. Next row.find('a') is called to obtain the
 link to the /result/ page corresponding to the present record and the url is
 prepended to the list. After the for loop finishes, tmp_row will be appended to
 parsed_data once more to make sure the very last entry is collected, and then
-parsed_data is returned. _fetch_result_page accepts a URL and a dict (data entry
+parsed_data is returned. _fetch_result_page accepts a URL and a dict (data record
 in json format) as arguments. It again first checks that the url is not disallowed
 by robots.txt, and then collects the page number of the URL so that if an error
 occurs on any page a message can be printed to the user designating which page
@@ -67,7 +67,7 @@ and _fetch_result_page() concurrently for more efficient execution. As arguments
 it accepts the function to be called, the numbers to be included in each url
 (which /survey/ or /results/ page to open), a boolean to indicate the format of
 the argument mapping passed to executor.submit(), and an optional argument
-'all_payloads' that only passed if 'worker_func' is _fetch_result_page(). Next
+'all_payloads' that is only passed if 'worker_func' is _fetch_result_page(). Next
 a context manager opens a ThreadPoolExecutor object with max_workers set to
 MAX_WORKERS, and if 'is_mapping' is true when using _fetch_result_page() as the
 worker_func, then a dict 'future_to_task' will be created using a dict comprehension
@@ -75,7 +75,7 @@ with the keys as Future objects given the worker_func and respective arguments
 for each argument in 'tasks', and the number of each task as the value. Creating
 these Future objects in the keys will begin execution of the worker_func in a
 separate thread. If 'is_mapping' is False, then _fetch_table_page() will be called
-concurrently using identical logic, only with separate arguments passed to 
+concurrently using identical logic, only with different arguments passed to 
 worker_func. Next there is a for loop that iterates through the future_to_task
 dict, and for each Future object retrieves the returned result with future.result().
 If the data is not empty, then an if statement will check wither the returned 
@@ -94,14 +94,14 @@ as values. A try block is then opened in case of malformed entries, and the URL
 for the /result/ page is created using the BASE_URL with the href value at index
 0 of the row of data. The 'url' field of the initially empty payload is then set
 to this value, and the 'date added' and 'term' fields are filled out by indexing
-the list/row of data currently being processed. Only these fields are filled in
+the row of data currently being processed. Only these fields are filled out
 using data from the /survey/ page because the other fields are available and
 easier to parse from the /result/ pages. This payload is then added to 
 'all_payloads' with the URL as the key in order to easily identify which /result/
 page should be used to fill out the rest of each payload. The list of all URLs
-is obtained by calling (list(all_payloads.keys())), and then the list of all
+is obtained by calling list(all_payloads.keys()), and then the list of all
 payloads, fully filled out (but still not cleaned), is obtained by calling
-_concurrent_scraper() with _fetch_result_page as the worker func and passing it
+_concurrent_scraper() with _fetch_result_page() as the worker func and passing it
 the list of all urls and the dict containing all payloads as arguments. There is
 then a print statement informing the user how many records were successfully
 collected/parsed, and then the list of all payloads is returned. Finally,
@@ -110,7 +110,7 @@ that scraping can be achieved with a single function call. Within scrape_data(),
 a timestamp is first created using time.time() so that a print statement can
 inform the user how long the process of collecting data took once the execution
 completes. Next, the list of rows of data from the /survey/ pages is retrieved
-by calling _concurrent_scraper() with _fetch_table_page as the worker_func and
+by calling _concurrent_scraper() with _fetch_table_page() as the worker_func and
 passing range(1, NUM_PAGES_OF_DATA) as the 'tasks' argument. NUM_PAGES_OF_DATA
 is set to 2000 by default, and with 21 records per page should provide ~40k rows
 of data once the process is complete. Once the rows of data are retrieved from
@@ -139,24 +139,25 @@ list comprehension that only retains values that include 'fall' or 'spring'
 one element returned in all cases, so the term is obtained by indexing the 0th
 element from this list of filtered matches. Then, a brand new payload is created
 using a dict comprehension to copy all of the keys from the dirty payload and
-assigning the values as _remove_whitespace(v) from each value. The term start date
-was isolated first because calling _remove_whitespace() on the 'term' field would
-have made parsing the term start a bit more difficult. Next, the 'term' field of
-the new payload is overwritten using the value just extracted before the new
-payload was created. Next, the 'application status date' field is cleaned by
-using a regex expression that replaces any character that is not a digit or forward
-slash with an empty string. This is to keep only the acceptance/rejection date
-in DD/MM/YYYY format, rather than something like 'on DD/MM/YYYY via email'.
-Next there several if statements that check for the default values for 'comments',
-'GRE', 'GRE V', and 'GRE AW' ("", '0.00', '0', '0', and '0.00', respectively)
-since these are optional fields, and if no value was entered then these will be
-overwritten to None. Once the new payload is fully filled out, then it is appended
-to the list of cleaned data, and once the for loop terminates then the list of
-cleaned payloads will be returned. The next two functions, save_data() and
-load_data(), operate very similarly. save_data() accepts the list of clean payloads
-as input and then writes the data to applicant_data.json using json.dump().
-load_data() opens applicant_data.json in read mode, uses json.load() to load the
-cleaned data into memory, and returns the clean data.
+assigning the values by calling _remove_whitespace() on each value. The term 
+start date was isolated first because calling _remove_whitespace() on the 'term'
+field directly would have made parsing the term start a bit more difficult. Next,
+the 'term' field of the new payload is overwritten using the value just extracted
+before this new payload was created. Next, the 'application status date' field is
+cleaned by using a regex expression that replaces any character that is not a
+digit or forward slash with an empty string. This is to keep only the
+acceptance/rejection date in DD/MM/YYYY format, rather than something like
+'on DD/MM/YYYY via email'. Next there are several if statements that check for
+the default values under 'comments', 'GRE', 'GRE V', and 'GRE AW' ("", '0.00',
+'0', '0', and '0.00', respectively) since these are optional fields, and if no
+value was entered then these will be overwritten to None. Once the new payload
+is fully filled out, then it is appended to the list of cleaned data, and once
+the for loop terminates then the list of cleaned payloads will be returned. The
+next two functions, save_data() and load_data(), operate very similarly. save_data()
+accepts the list of clean payloads as input and then writes the data to
+applicant_data.json using json.dump(). load_data() opens applicant_data.json in
+read mode, uses json.load() to load the cleaned data into memory, and returns the
+clean data.
 
 ________________________________________________________________________________
 main.py - 
