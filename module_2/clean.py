@@ -9,6 +9,7 @@ def _remove_whitespace(str_):
     output = re.sub(pattern, '', str_)
     return output
 
+
 def clean_data(raw_data: list):
     """
     Converts data into a structured format.
