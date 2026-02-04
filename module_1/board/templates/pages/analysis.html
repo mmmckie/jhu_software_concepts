@@ -31,8 +31,7 @@
   {% endif %}
   {% if info_message %}
     <p>{{ info_message }}</p>
-  {% endif %}
-  {% if pull_in_progress %}
+  {% elif pull_in_progress %}
     <p>Pull Data is currently running. Update Analysis will work once it finishes.</p>
   {% endif %}
 

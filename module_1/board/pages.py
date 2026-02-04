@@ -57,22 +57,23 @@ def analysis_pull():
         _PULL_IN_PROGRESS = True
         update_status = update_new_records()
         results = run_analysis()
+        _PULL_IN_PROGRESS = False
         return render_template(
             "pages/analysis.html",
             active='analysis',
             results=results,
             update_status=update_status,
+            info_message="Pull Data complete. You can now click Update Analysis.",
             pull_in_progress=_PULL_IN_PROGRESS,
         )
     except Exception as exc:
+        _PULL_IN_PROGRESS = False
         return render_template(
             "pages/analysis.html",
             active='analysis',
             error=str(exc),
             pull_in_progress=_PULL_IN_PROGRESS,
         )
-    finally:
-        _PULL_IN_PROGRESS = False
 
 
 @bp.route("/analysis/update", methods=["POST"])
