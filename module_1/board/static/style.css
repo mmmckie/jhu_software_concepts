@@ -90,6 +90,24 @@ button:hover {
     background-color: #444;
 }
 
+.analysis-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.analysis-actions-right {
+    text-align: right;
+}
+
+.action-note {
+    max-width: 420px;
+    margin-top: 6px;
+    margin-bottom: 0;
+}
+
 /* Shrinking whitespace a bit between paragraphs within a list item */
 li p {
     margin-bottom: 4px;

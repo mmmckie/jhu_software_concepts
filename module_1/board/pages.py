@@ -14,6 +14,8 @@ if str(module_3_path) not in sys.path:
 from query_data import run_analysis
 from main import update_new_records
 
+_PULL_IN_PROGRESS = False
+
 # Set routing address for each page template and create 'active' context variable
 # for navbar highlighting
 
@@ -33,14 +35,26 @@ def projects():
 def analysis():
     try:
         results = run_analysis()
-        return render_template("pages/analysis.html", active='analysis', results=results)
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            results=results,
+            pull_in_progress=_PULL_IN_PROGRESS,
+        )
     except Exception as exc:
-        return render_template("pages/analysis.html", active='analysis', error=str(exc))
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            error=str(exc),
+            pull_in_progress=_PULL_IN_PROGRESS,
+        )
 
 
-@bp.route("/analysis/refresh", methods=["POST"])
-def analysis_refresh():
+@bp.route("/analysis/pull", methods=["POST"])
+def analysis_pull():
+    global _PULL_IN_PROGRESS
     try:
+        _PULL_IN_PROGRESS = True
         update_status = update_new_records()
         results = run_analysis()
         return render_template(
@@ -48,10 +62,41 @@ def analysis_refresh():
             active='analysis',
             results=results,
             update_status=update_status,
+            pull_in_progress=_PULL_IN_PROGRESS,
         )
     except Exception as exc:
         return render_template(
             "pages/analysis.html",
             active='analysis',
             error=str(exc),
+            pull_in_progress=_PULL_IN_PROGRESS,
+        )
+    finally:
+        _PULL_IN_PROGRESS = False
+
+
+@bp.route("/analysis/update", methods=["POST"])
+def analysis_update():
+    if _PULL_IN_PROGRESS:
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            pull_in_progress=_PULL_IN_PROGRESS,
+            info_message="Pull Data is currently running. Update Analysis will work once it finishes.",
+        )
+    try:
+        results = run_analysis()
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            results=results,
+            pull_in_progress=_PULL_IN_PROGRESS,
+            info_message="Analysis updated with the latest available data.",
+        )
+    except Exception as exc:
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            error=str(exc),
+            pull_in_progress=_PULL_IN_PROGRESS,
         )

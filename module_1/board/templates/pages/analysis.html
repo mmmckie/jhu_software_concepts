@@ -3,9 +3,24 @@
 {% block content %}
   <h1>Admissions SQL Analysis</h1>
 
-  <form action="{{ url_for('pages.analysis_refresh') }}" method="post">
-    <button type="submit">Pull New Records + Refresh Analysis</button>
-  </form>
+  <div class="analysis-actions">
+    <div class="analysis-actions-left">
+      <form action="{{ url_for('pages.analysis_pull') }}" method="post">
+        <button type="submit">Pull Data</button>
+      </form>
+      <p class="action-note">
+        Pulls any new GradCafe results, appends them to your local files, and loads them into the database.
+      </p>
+    </div>
+    <div class="analysis-actions-right">
+      <form action="{{ url_for('pages.analysis_update') }}" method="post">
+        <button type="submit">Update Analysis</button>
+      </form>
+      <p class="action-note">
+        Refreshes the analysis summary using the most up-to-date data currently available.
+      </p>
+    </div>
+  </div>
 
   {% if update_status %}
     {% if update_status.status == "no_new" %}
@@ -13,6 +28,12 @@
     {% elif update_status.status == "updated" %}
       <p>Updated with {{ update_status.records }} new records.</p>
     {% endif %}
+  {% endif %}
+  {% if info_message %}
+    <p>{{ info_message }}</p>
+  {% endif %}
+  {% if pull_in_progress %}
+    <p>Pull Data is currently running. Update Analysis will work once it finishes.</p>
   {% endif %}
 
   {% if error %}
