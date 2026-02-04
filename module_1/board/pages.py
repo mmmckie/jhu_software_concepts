@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 
 from flask import Blueprint, render_template
+from flask import redirect, url_for, request
 
 bp = Blueprint("pages", __name__)
 
@@ -11,6 +12,7 @@ if str(module_3_path) not in sys.path:
     sys.path.append(str(module_3_path))
 
 from query_data import run_analysis
+from main import update_new_records
 
 # Set routing address for each page template and create 'active' context variable
 # for navbar highlighting
@@ -34,3 +36,22 @@ def analysis():
         return render_template("pages/analysis.html", active='analysis', results=results)
     except Exception as exc:
         return render_template("pages/analysis.html", active='analysis', error=str(exc))
+
+
+@bp.route("/analysis/refresh", methods=["POST"])
+def analysis_refresh():
+    try:
+        update_status = update_new_records()
+        results = run_analysis()
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            results=results,
+            update_status=update_status,
+        )
+    except Exception as exc:
+        return render_template(
+            "pages/analysis.html",
+            active='analysis',
+            error=str(exc),
+        )

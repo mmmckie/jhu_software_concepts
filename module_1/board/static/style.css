@@ -77,6 +77,19 @@ a {
     color: #02cb8c;
 }
 
+button {
+    background-color: #333;
+    color: #eaff0079;
+    border: 1px solid #666;
+    padding: 8px 12px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+button:hover {
+    background-color: #444;
+}
+
 /* Shrinking whitespace a bit between paragraphs within a list item */
 li p {
     margin-bottom: 4px;

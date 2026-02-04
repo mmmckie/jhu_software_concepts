@@ -3,6 +3,18 @@
 {% block content %}
   <h1>Admissions SQL Analysis</h1>
 
+  <form action="{{ url_for('pages.analysis_refresh') }}" method="post">
+    <button type="submit">Pull New Records + Refresh Analysis</button>
+  </form>
+
+  {% if update_status %}
+    {% if update_status.status == "no_new" %}
+      <p>No new records found. Analysis refreshed.</p>
+    {% elif update_status.status == "updated" %}
+      <p>Updated with {{ update_status.records }} new records.</p>
+    {% endif %}
+  {% endif %}
+
   {% if error %}
     <p><b>Error loading analysis:</b> {{ error }}</p>
   {% else %}
