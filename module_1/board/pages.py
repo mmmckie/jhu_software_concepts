@@ -1,6 +1,16 @@
+from pathlib import Path
+import sys
+
 from flask import Blueprint, render_template
 
 bp = Blueprint("pages", __name__)
+
+# Allow module_1 Flask app to import module_3 analysis utilities.
+module_3_path = Path(__file__).resolve().parents[2] / "module_3"
+if str(module_3_path) not in sys.path:
+    sys.path.append(str(module_3_path))
+
+from query_data import run_analysis
 
 # Set routing address for each page template and create 'active' context variable
 # for navbar highlighting
@@ -16,3 +26,11 @@ def contact():
 @bp.route("/projects")
 def projects():
     return render_template("pages/projects.html", active = 'projects')
+
+@bp.route("/analysis")
+def analysis():
+    try:
+        results = run_analysis()
+        return render_template("pages/analysis.html", active='analysis', results=results)
+    except Exception as exc:
+        return render_template("pages/analysis.html", active='analysis', error=str(exc))

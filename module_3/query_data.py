@@ -4,13 +4,13 @@ import psycopg
 conn_info = "dbname=grad_data user=mmckie2 password=password host=localhost"
 
 def run_analysis():
+    results = {}
     # TOTAL NUMBER OF RECORDS
     query = """
         SELECT COUNT(*) FROM admissions;
         """
     total_records = execute_query(query)[0][0]
-    print(f'There are {total_records} entries')
-    print()
+    results["total_records"] = total_records
 
     # NUMBER OF RECORDS FOR FALL 2026 TERM
     query = """
@@ -18,8 +18,7 @@ def run_analysis():
         WHERE term = 'Fall 2026';
         """
     fall_2026_applicants = execute_query(query)[0][0]
-    print(f'There were {fall_2026_applicants} Fall 2026 applicant entries.')
-    print()
+    results["fall_2026_applicants"] = fall_2026_applicants
 
     # PERCENTAGE OF ENTRIES FROM INTERNATIONAL STUDENTS
     query = """
@@ -27,9 +26,10 @@ def run_analysis():
         WHERE us_or_international = 'International';
         """
     internationals = execute_query(query)[0][0]
-    print(internationals, total_records)
-    print(f'There were {internationals/total_records: 0.2%} International applicant entries.')
-    print()
+    if total_records:
+        results["international_percentage"] = round((internationals / total_records) * 100, 2)
+    else:
+        results["international_percentage"] = 0.0
 
     # AVERAGE GPA, GRE, GRE V, GRE AW
     query = """
@@ -48,8 +48,12 @@ def run_analysis():
 
     gpa_gre_scores = execute_query(query)[0]
     gpa, gre, gre_v, gre_aw = gpa_gre_scores
-    print(f'Average metrics - GPA: {gpa} | GRE: {gre} | GRE V: {gre_v} | GRE AW: {gre_aw}')
-    print()
+    results["average_metrics"] = {
+        "gpa": gpa,
+        "gre": gre,
+        "gre_v": gre_v,
+        "gre_aw": gre_aw,
+    }
 
     # AMERICAN STUDENT AVG GPA FOR FALL 2026 TERM
     query = """
@@ -63,8 +67,7 @@ def run_analysis():
         """
 
     american_fall_2026_gpa = execute_query(query)[0][0]
-    print(f'Fall 2026 American Applicant Avg GPA: {american_fall_2026_gpa}')
-    print()
+    results["american_fall_2026_gpa"] = american_fall_2026_gpa
 
     # PERCENT ACCEPTANCES FOR FALL 2025
     query = """
@@ -79,8 +82,7 @@ def run_analysis():
         """
 
     fall_2025_acceptance_rate = execute_query(query)[0][0]
-    print(f'Fall 2025 Acceptance Rate: {fall_2025_acceptance_rate}%')
-    print()
+    results["fall_2025_acceptance_rate"] = fall_2025_acceptance_rate
 
     # AVERAGE GPA OF FALL 2026 ACCEPTANCES
     query = """
@@ -93,8 +95,7 @@ def run_analysis():
         """
 
     fall_2026_acceptance_gpa = execute_query(query)[0][0]
-    print(f'Avg GPA of Fall 2026 Acceptances: {fall_2026_acceptance_gpa}')
-    print()
+    results["fall_2026_acceptance_gpa"] = fall_2026_acceptance_gpa
 
     # NUMBER OF JHU MASTER'S COMPUTER SCIENCE APPLICATIONS
     query = """
@@ -114,8 +115,7 @@ def run_analysis():
         """
     
     jhu_cs_masters = execute_query(query)[0][0]
-    print(f'Number of JHU Master\'s CS applicants: {jhu_cs_masters}')
-    print()
+    results["jhu_cs_masters"] = jhu_cs_masters
 
     # 2026 PHD COMPUTER SCIENCE ACCEPTANCES FROM GEORGETOWN, MIT, STANFORD, CARNEGIE MELLON
     query = """
@@ -147,7 +147,7 @@ def run_analysis():
         """
     
     ivy_2026_compsci_phds = execute_query(query)[0][0]
-    print(f'2026 PhD Acceptances from Georgetown, MIT, Stanford, and Carnegie Mellon: {ivy_2026_compsci_phds}')
+    results["ivy_2026_compsci_phds"] = ivy_2026_compsci_phds
 
     # SAME 2026 PHD COMPSCI ACCEPTANCES, RELYING ON ONLY LLM VS RAW DATA
 
@@ -193,9 +193,8 @@ def run_analysis():
     ivy_2026_compsci_phds_llm_fields = execute_query(query_llm_fields)[0][0]
     ivy_2026_compsci_phds_raw_fields = execute_query(query_raw_fields)[0][0]
 
-    print(f'Same info relying on LLM generated fields only: {ivy_2026_compsci_phds_llm_fields}')
-    print(f'Same info relying on raw fields only: {ivy_2026_compsci_phds_raw_fields}')
-    print()
+    results["ivy_2026_compsci_phds_llm_fields"] = ivy_2026_compsci_phds_llm_fields
+    results["ivy_2026_compsci_phds_raw_fields"] = ivy_2026_compsci_phds_raw_fields
 
     ### EXTRA QUESTION 1)
     # How many more applicants applied for a Fall 2025 start term vs a
@@ -206,11 +205,9 @@ def run_analysis():
             COUNT(*) FILTER (WHERE term = 'Spring 2025') as spring_count
         FROM admissions;
         """
-    # print(execute_query(query))
     fall_2025_applicants, spring_2025_applicants = execute_query(query)[0]
-    print(f'Fall 2025 Applicants: {fall_2025_applicants}')
-    print(f'Spring 2025 Applicants: {spring_2025_applicants}')
-    print()
+    results["fall_2025_applicants"] = fall_2025_applicants
+    results["spring_2025_applicants"] = spring_2025_applicants
 
     ### EXTRA QUESTION 2)
     # What is the average acceptance rate of Master's programs vs PhD programs
@@ -256,17 +253,18 @@ def run_analysis():
     masters_acceptance = execute_query(query_masters)
     phd_acceptance = execute_query(query_phd)
 
-    ms_no_gpa_acceptance = masters_acceptance[0][-1]
-    ms_gpa_acceptance = masters_acceptance[1][-1]
+    masters_map = {row[0]: row[-1] for row in masters_acceptance}
+    phd_map = {row[0]: row[-1] for row in phd_acceptance}
 
-    phd_no_gpa_acceptance = phd_acceptance[0][-1]
-    phd_gpa_acceptance = phd_acceptance[1][-1]
-
-    print('Master\'s program acceptance rates with/without reported GPA...')
-    print(f'With GPA: {ms_gpa_acceptance}% | No GPA: {ms_no_gpa_acceptance}%')
-    print()
-    print('PhD program acceptance rates with/without reported GPA...')
-    print(f'With GPA: {phd_gpa_acceptance}% | No GPA: {phd_no_gpa_acceptance}%')
+    results["masters_acceptance"] = {
+        "with_gpa": masters_map.get("Reported GPA"),
+        "no_gpa": masters_map.get("No GPA"),
+    }
+    results["phd_acceptance"] = {
+        "with_gpa": phd_map.get("Reported GPA"),
+        "no_gpa": phd_map.get("No GPA"),
+    }
+    return results
 
 
 def execute_query(query):
@@ -277,7 +275,55 @@ def execute_query(query):
             return cur.fetchall()
             
     except Exception as e:
-        print(f"An error occurred: {e}")
+        raise RuntimeError(f"Database query failed: {e}") from e
 
 if __name__ == "__main__":
-    run_analysis()
+    results = run_analysis()
+    print(f"There are {results['total_records']} entries")
+    print()
+    print(f"There were {results['fall_2026_applicants']} Fall 2026 applicant entries.")
+    print()
+    print(f"There were {results['international_percentage']: 0.2f}% International applicant entries.")
+    print()
+    avg = results["average_metrics"]
+    print(
+        "Average metrics - GPA: {gpa} | GRE: {gre} | GRE V: {gre_v} | GRE AW: {gre_aw}".format(
+            **avg
+        )
+    )
+    print()
+    print(f"Fall 2026 American Applicant Avg GPA: {results['american_fall_2026_gpa']}")
+    print()
+    print(f"Fall 2025 Acceptance Rate: {results['fall_2025_acceptance_rate']}%")
+    print()
+    print(f"Avg GPA of Fall 2026 Acceptances: {results['fall_2026_acceptance_gpa']}")
+    print()
+    print(f"Number of JHU Master's CS applicants: {results['jhu_cs_masters']}")
+    print()
+    print(
+        "2026 PhD Acceptances from Georgetown, MIT, Stanford, and Carnegie Mellon: "
+        f"{results['ivy_2026_compsci_phds']}"
+    )
+    print(
+        "Same info relying on LLM generated fields only: "
+        f"{results['ivy_2026_compsci_phds_llm_fields']}"
+    )
+    print(
+        "Same info relying on raw fields only: "
+        f"{results['ivy_2026_compsci_phds_raw_fields']}"
+    )
+    print()
+    print(f"Fall 2025 Applicants: {results['fall_2025_applicants']}")
+    print(f"Spring 2025 Applicants: {results['spring_2025_applicants']}")
+    print()
+    print("Master's program acceptance rates with/without reported GPA...")
+    print(
+        f"With GPA: {results['masters_acceptance']['with_gpa']}% | "
+        f"No GPA: {results['masters_acceptance']['no_gpa']}%"
+    )
+    print()
+    print("PhD program acceptance rates with/without reported GPA...")
+    print(
+        f"With GPA: {results['phd_acceptance']['with_gpa']}% | "
+        f"No GPA: {results['phd_acceptance']['no_gpa']}%"
+    )
