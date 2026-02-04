@@ -64,10 +64,10 @@ def clean_data(raw_data: list):
     return cleaned_data
 
 
-def save_data(cleaned_payloads):
+def save_data(cleaned_payloads, path="applicant_data.json"):
     "Saves cleaned data into applicant_data.json."
 
-    with open('applicant_data.json', 'w') as f:
+    with open(path, 'w') as f:
         json.dump(cleaned_payloads, f)
 
 

@@ -106,6 +106,13 @@ def _fetch_table_page(page_num):
         return []
 
 
+def _extract_result_num(url):
+    try:
+        return int(url.rstrip('/').split('/')[-1])
+    except (ValueError, AttributeError):
+        return None
+
+
 def _fetch_result_page(url, payload):
     """Fetches a single result page and parses the data."""
 
@@ -278,7 +285,7 @@ def _get_raw_payloads(data_rows):
     return all_results    
 
 
-def scrape_data():
+def scrape_data(min_result_num=None, existing_urls=None):
     "Pulls admissions data from GradCafe."
 
     t1 = time.time()
@@ -287,6 +294,22 @@ def scrape_data():
                                          range(1, NUM_PAGES_OF_DATA + 1))
 
     # Then collect data from /result/ pages
+    if min_result_num is not None or existing_urls:
+        filtered_rows = []
+        existing_urls = existing_urls or set()
+        for row in collected_rows:
+            if not row:
+                continue
+            url = BASE_URL + row[0]
+            result_num = _extract_result_num(url)
+            if url in existing_urls:
+                continue
+            if min_result_num is not None and result_num is not None:
+                if result_num < min_result_num:
+                    continue
+            filtered_rows.append(row)
+        collected_rows = filtered_rows
+
     raw_payloads = _get_raw_payloads(collected_rows)
     t2 = time.time()
 
