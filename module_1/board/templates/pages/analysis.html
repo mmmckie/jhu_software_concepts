@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Admissions SQL Analysis</h1>
+  <h1>TheGradCafe Analysis</h1>
 
   <div class="analysis-actions">
     <div class="analysis-actions-left">
@@ -39,11 +39,26 @@
     <p><b>Error loading analysis:</b> {{ error }}</p>
   {% else %}
     <h2>Overview</h2>
+    <p> <u><b>Total number of records: {{ results.total_records }}</b></u></p>
     <ul>
-      <li>Total records: {{ results.total_records }}</li>
-      <li>Fall 2026 applicants: {{ results.fall_2026_applicants }}</li>
-      <li>International applicants: {{ results.international_percentage }}%</li>
-      <li>Fall 2025 acceptance rate: {{ results.fall_2025_acceptance_rate }}%</li>
+      <li class="question"><b>How many applicants in the database applied for Fall 2026?</b></li>
+      <p class="answer">Fall 2026 Applicants: {{ results.fall_2026_applicants }}</p>
+
+      <li class="question"><b>What percentage of entries are from international students?</b></li>
+      <p class="answer">International applicants: {{ results.international_percentage }}%</p>
+      
+      <li class="question"><b>What is the average GPA of accepted applicants for the Fall 2026 term?</b></li>
+      <p class="answer">International applicants: {{ results.fall_2026_acceptance_gpa }}%</p>
+
+      <li class="question"><b>How many applicants applied to JHU for a Master's degree in Computer Science?</b></li>
+      <p class="answer">JHU CS Master's Applicants: {{ results.jhu_cs_masters }}%</p>
+
+      <li class="question"><b>How many entries added in 2026 are acceptances from applicants who applied 
+        to Georgetown University, MIT, Stanford University, or Carnegie Mellon University 
+        for a PhD in Computer Science?</b></li>
+      <p class="answer">2026 CS PhD Acceptances from (Georgetown/Stanford/MIT/Carnegie Mellon): {{ results.ivy_2026_compsci_phds }}</p>
+      <p class="answer">Same information relying on LLM fields only: {{ results.ivy_2026_compsci_phds_llm_fields }}</p>
+      <p class="answer">Same information relying on raw fields only: {{ results.ivy_2026_compsci_phds }}</p>
     </ul>
 
     <h2>Average Metrics</h2>
@@ -76,21 +91,15 @@
 
     <h2>Targeted Queries</h2>
     <ul>
-      <li>Fall 2026 American applicant average GPA: {{ results.american_fall_2026_gpa }}</li>
-      <li>Average GPA of Fall 2026 acceptances: {{ results.fall_2026_acceptance_gpa }}</li>
-      <li>JHU Master's CS applicants: {{ results.jhu_cs_masters }}</li>
-      <li>2026 PhD acceptances (Georgetown/MIT/Stanford/CMU): {{ results.ivy_2026_compsci_phds }}</li>
-      <li>Same count (LLM fields only): {{ results.ivy_2026_compsci_phds_llm_fields }}</li>
-      <li>Same count (raw fields only): {{ results.ivy_2026_compsci_phds_raw_fields }}</li>
-    </ul>
+      <li class="question"><b>How many applicants applied for a Fall 2025 start 
+        term vs. a Spring 2025 start term?</b></li>
+      <p class="answer">Fall 2025: {{ results.fall_2025_applicants }}</p>
+      <p class="answer">Spring 2025: {{ results.spring_2025_applicants }}</p>
 
-    <h2>Term Comparison</h2>
-    <ul>
-      <li>Fall 2025 applicants: {{ results.fall_2025_applicants }}</li>
-      <li>Spring 2025 applicants: {{ results.spring_2025_applicants }}</li>
-    </ul>
-
-    <h2>Acceptance Rates (American Applicants)</h2>
+      <li class="question"><b>What is the average acceptance rate of Master's 
+        programs vs PhD programs for American applicants who do and don't report 
+        their GPA?</b></li>
+        <div>Acceptance Rates (American Applicants)</div>
     <table class="analysis-table">
       <thead>
         <tr>
@@ -112,5 +121,14 @@
         </tr>
       </tbody>
     </table>
+    </ul>
+
+    <h2>Term Comparison</h2>
+    <ul>
+      <li>Fall 2025 applicants: {{ results.fall_2025_applicants }}</li>
+      <li>Spring 2025 applicants: {{ results.spring_2025_applicants }}</li>
+    </ul>
+
+    
   {% endif %}
 {% endblock %}

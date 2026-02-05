@@ -138,6 +138,7 @@ def run_analysis():
             OR university ILIKE '%carnegie%melon%'
             OR university = 'CMU'
         )
+        AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
         AND (
             llm_generated_program ILIKE '%comp%sci%' 
             OR program ILIKE '%comp%sci%'
@@ -161,6 +162,7 @@ def run_analysis():
             OR llm_generated_university = 'Carnegie Mellon University'
 
         )
+        AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
         AND (
             llm_generated_program ILIKE '%comp%sci%' 
         )
@@ -183,6 +185,7 @@ def run_analysis():
             OR university ILIKE '%carnegie%melon%'
             OR university = 'CMU'
         )
+        AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
         AND (
             program ILIKE '%comp%sci%'
             OR program = 'CS'
