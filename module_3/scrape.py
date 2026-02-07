@@ -11,7 +11,7 @@ BASE_URL = 'https://www.thegradcafe.com'
 # 21 records per page should provide ~40k results
 NUM_PAGES_OF_DATA = 2000
 
-# MAX_WORKERS = 10 is a safe "polite" starting point.
+# MAX_WORKERS = 10 is a safe 'polite' starting point.
 # Increase to 20 or 30 if the server handles it well.
 MAX_WORKERS = 10
 
@@ -35,7 +35,7 @@ def _is_restricted_path(url):
 
 
 def _fetch_table_page(page_num):
-    """
+    '''
     Fetches a single page and parses the table rows.
     
     Arguments:
@@ -43,9 +43,9 @@ def _fetch_table_page(page_num):
     
     Returns:
     parsed_data: list of lists containing gathered information from each page entry
-    """
+    '''
 
-    url = f"{BASE_URL}/survey/?page={page_num}"
+    url = f'{BASE_URL}/survey/?page={page_num}'
     if _is_restricted_path(url):
         return []
 
@@ -99,14 +99,15 @@ def _fetch_table_page(page_num):
         return parsed_data
 
     except error.HTTPError as e:
-        print(f"HTTP Error {e.code} on page {page_num}")
+        print(f'HTTP Error {e.code} on page {page_num}')
         return []
     except Exception as e:
-        print(f"Error on page {page_num}: {e}")
+        print(f'Error on page {page_num}: {e}')
         return []
 
 
 def _extract_result_num(url):
+    '''Obtains unique URL identifier for TheGradCafe /result/ pages.'''
     try:
         return int(url.rstrip('/').split('/')[-1])
     except (ValueError, AttributeError):
@@ -114,7 +115,7 @@ def _extract_result_num(url):
 
 
 def _fetch_result_page(url, payload):
-    """Fetches a single result page and parses the data."""
+    '''Fetches a single result page and parses the data.'''
 
     # Check for restricted URLs from robots.txt
     if _is_restricted_path(url):
@@ -180,15 +181,15 @@ def _fetch_result_page(url, payload):
         return payload
 
     except error.HTTPError as e:
-        print(f"HTTP Error {e.code} on page {page_num}")
+        print(f'HTTP Error {e.code} on page {page_num}')
         return {}
     except Exception as e:
-        print(f"Error on page {page_num}: {e}")
+        print(f'Error on page {page_num}: {e}')
         return {}
 
 
 def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
-    """
+    '''
     Generic thread manager for scraping with parallel threads.
     
     Arguments:
@@ -199,7 +200,7 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
     Returns:
     all_results: list or list[Dict{str, str}] depending on which function is
                  executed
-    """
+    '''
 
     all_results = []
 
@@ -230,7 +231,7 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
                         all_results.append(data)
             except Exception as e:
                 task = future_to_task[future]
-                print(f"Task {task} failed with: {e}")
+                print(f'Task {task} failed with: {e}')
 
     return all_results
 
@@ -280,13 +281,13 @@ def _get_raw_payloads(data_rows):
                                          is_mapping=True, 
                                          all_payloads=all_payloads)
 
-    print(f"FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY")
+    print(f'FINAL RESULTS: {len(all_results)} RECORDS PARSED SUCCESSFULLY')
 
     return all_results    
 
 
 def scrape_data(min_result_num=None, existing_urls=None):
-    "Pulls admissions data from GradCafe."
+    'Pulls admissions data from GradCafe.'
 
     t1 = time.time()
     # Collect data from /survey/ pages

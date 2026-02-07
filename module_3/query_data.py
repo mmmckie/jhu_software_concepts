@@ -4,8 +4,14 @@ import psycopg
 conn_info = 'dbname=grad_data user=postgres host=localhost'
 
 def run_analysis():
+    '''
+    Executes several queries on database created using TheGradCafe applicant
+    data and returns dict of all resulting metrics.
+    '''
+    # dict to store all following metrics
     results = {}
-    # TOTAL NUMBER OF RECORDS
+
+    # TOTAL NUMBER OF RECORDS COLLECTED
     query = """
         SELECT COUNT(*) FROM admissions;
         """
@@ -271,6 +277,8 @@ def run_analysis():
 
 
 def execute_query(query):
+    '''Executes a SQL query on a postgreSQL database and returns the result.'''
+    
     try:
         connection = psycopg.connect(conn_info)
         with connection.cursor() as cur:
@@ -281,7 +289,10 @@ def execute_query(query):
         raise RuntimeError(f'Database query failed: {e}') from e
 
 if __name__ == '__main__':
+    # Execute all queries and collect results
     results = run_analysis()
+
+    # Print the analysis results to console
     print(f'There are {results['total_records']} entries')
     print()
     print(f'There were {results['fall_2026_applicants']} Fall 2026 applicant entries.')

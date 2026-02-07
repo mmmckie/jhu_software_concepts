@@ -2,23 +2,25 @@ import psycopg
 import json
 from datetime import datetime
 
+# For creating/connecting to postgresql database
 base_conn_info = 'dbname=postgres user=postgres host=localhost'
-dbname = 'grad_data'
-conn_info = f'dbname={dbname} user=postgres host=localhost'
+DBNAME = 'grad_data'
+conn_info = f'dbname={DBNAME} user=postgres host=localhost'
+
 
 def create_db_if_not_exists():
     # Connect to default 'postgres' db to perform administrative task
     with psycopg.connect(base_conn_info, autocommit=True) as conn:
         with conn.cursor() as cur:
             # Check if grad_data exists
-            cur.execute('SELECT 1 FROM pg_database WHERE datname = %s', (dbname,))
+            cur.execute('SELECT 1 FROM pg_database WHERE datname = %s', (DBNAME,))
             exists = cur.fetchone()
             
             if not exists:
-                print(f'Database {dbname} not found. Creating it now...')
-                cur.execute(f'CREATE DATABASE {dbname}')
+                print(f'Database {DBNAME} not found. Creating it now...')
+                cur.execute(f'CREATE DATABASE {DBNAME}')
             else:
-                print(f'Database {dbname} already exists.')
+                print(f'Database {DBNAME} already exists.')
 
 def get_max_result_page():
     try:

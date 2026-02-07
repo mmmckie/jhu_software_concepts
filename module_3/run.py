@@ -1,3 +1,5 @@
+'''Launches Flask webpage to view analysis results in browser.'''
+
 from board import create_app
 
 app = create_app()
