@@ -2,7 +2,24 @@ import psycopg
 import json
 from datetime import datetime
 
-conn_info = "dbname=grad_data user=mmckie2 password=password host=localhost"
+# conn_info = "dbname=grad_data user=postgres password=password host=localhost"
+base_conn_info = 'dbname=postgres user=postgres host=localhost'
+dbname = 'grad_data'
+conn_info = f'dbname={dbname} user=postgres host=localhost'
+
+def create_db_if_not_exists():
+    # Connect to default 'postgres' db to perform administrative task
+    with psycopg.connect(base_conn_info, autocommit=True) as conn:
+        with conn.cursor() as cur:
+            # Check if grad_data exists
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
+            exists = cur.fetchone()
+            
+            if not exists:
+                print(f"Database '{dbname}' not found. Creating it now...")
+                cur.execute(f"CREATE DATABASE {dbname}")
+            else:
+                print(f"Database '{dbname}' already exists.")
 
 def get_max_result_page():
     try:
@@ -35,6 +52,9 @@ def format_date(date_str):
         return None
 
 def stream_jsonl_to_postgres(filepath):
+    
+    create_db_if_not_exists()
+
     with psycopg.connect(conn_info) as conn:
         with conn.cursor() as cur:
             # 1. Create table with proper numeric types

@@ -1,7 +1,7 @@
 import psycopg
 
 # Use the same connection string as your loader
-conn_info = "dbname=grad_data user=mmckie2 password=password host=localhost"
+conn_info = "dbname=grad_data user=postgres host=localhost"
 
 def run_analysis():
     results = {}
