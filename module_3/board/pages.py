@@ -1,12 +1,7 @@
-from pathlib import Path
-import sys
-
 from flask import Blueprint, render_template
 from flask import redirect, url_for, request
 
-bp = Blueprint("pages", __name__)
-
-
+bp = Blueprint('pages', __name__)
 
 from query_data import run_analysis
 from main import update_new_records
@@ -16,25 +11,24 @@ _PULL_IN_PROGRESS = False
 # Set routing address for each page template and create 'active' context variable
 # for navbar highlighting
 
-
-@bp.route("/")
+@bp.route('/')
 def analysis():
     try:
         results = run_analysis()
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             results=results,
             pull_in_progress=_PULL_IN_PROGRESS,
         )
     except Exception as exc:
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             error=str(exc),
             pull_in_progress=_PULL_IN_PROGRESS,
         )
 
 
-@bp.route("/pull", methods=["POST"])
+@bp.route('/pull', methods=['POST'])
 def analysis_pull():
     global _PULL_IN_PROGRESS
     try:
@@ -43,40 +37,40 @@ def analysis_pull():
         results = run_analysis()
         _PULL_IN_PROGRESS = False
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             results=results,
             update_status=update_status,
-            info_message="Pull Data complete. You can now click Update Analysis.",
+            info_message='Pull Data complete. You can now click Update Analysis.',
             pull_in_progress=_PULL_IN_PROGRESS,
         )
     except Exception as exc:
         _PULL_IN_PROGRESS = False
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             error=str(exc),
             pull_in_progress=_PULL_IN_PROGRESS,
         )
 
 
-@bp.route("/update", methods=["POST"])
+@bp.route('/update', methods=['POST'])
 def analysis_update():
     if _PULL_IN_PROGRESS:
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             pull_in_progress=_PULL_IN_PROGRESS,
-            info_message="Pull Data is currently running. Update Analysis will work once it finishes.",
+            info_message='Pull Data is currently running. Update Analysis will work once it finishes.',
         )
     try:
         results = run_analysis()
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             results=results,
             pull_in_progress=_PULL_IN_PROGRESS,
-            info_message="Analysis updated with the latest available data.",
+            info_message='Analysis updated with the latest available data.',
         )
     except Exception as exc:
         return render_template(
-            "pages/analysis.html",
+            'pages/analysis.html',
             error=str(exc),
             pull_in_progress=_PULL_IN_PROGRESS,
         )

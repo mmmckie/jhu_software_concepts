@@ -2,7 +2,6 @@ import psycopg
 import json
 from datetime import datetime
 
-# conn_info = "dbname=grad_data user=postgres password=password host=localhost"
 base_conn_info = 'dbname=postgres user=postgres host=localhost'
 dbname = 'grad_data'
 conn_info = f'dbname={dbname} user=postgres host=localhost'
@@ -12,20 +11,20 @@ def create_db_if_not_exists():
     with psycopg.connect(base_conn_info, autocommit=True) as conn:
         with conn.cursor() as cur:
             # Check if grad_data exists
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
+            cur.execute('SELECT 1 FROM pg_database WHERE datname = %s', (dbname,))
             exists = cur.fetchone()
             
             if not exists:
-                print(f"Database '{dbname}' not found. Creating it now...")
-                cur.execute(f"CREATE DATABASE {dbname}")
+                print(f'Database {dbname} not found. Creating it now...')
+                cur.execute(f'CREATE DATABASE {dbname}')
             else:
-                print(f"Database '{dbname}' already exists.")
+                print(f'Database {dbname} already exists.')
 
 def get_max_result_page():
     try:
         with psycopg.connect(conn_info) as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT MAX(result_page) FROM admissions;")
+                cur.execute('SELECT MAX(result_page) FROM admissions;')
                 result = cur.fetchone()
                 return result[0] if result and result[0] is not None else None
     except Exception:
@@ -36,18 +35,18 @@ def get_existing_urls():
     try:
         with psycopg.connect(conn_info) as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT url FROM admissions;")
+                cur.execute('SELECT url FROM admissions;')
                 return {row[0] for row in cur.fetchall() if row[0]}
     except Exception:
         return set()
 
 
 def format_date(date_str):
-    """Converts 'January 28, 2026' to '2026-01-28' for Postgres."""
+    '''Converts 'January 28, 2026' to '2026-01-28' for Postgres.'''
     if not date_str:
         return None
     try:
-        return datetime.strptime(date_str, "%B %d, %Y").date()
+        return datetime.strptime(date_str, '%B %d, %Y').date()
     except ValueError:
         return None
 
@@ -81,7 +80,7 @@ def stream_jsonl_to_postgres(filepath):
                     result_page INTEGER -- The end of URL (result number)
                 );
             """)
-            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS admissions_url_key ON admissions (url);")
+            cur.execute('CREATE UNIQUE INDEX IF NOT EXISTS admissions_url_key ON admissions (url);')
 
             with open(filepath, 'r', encoding='utf-8') as f:
                 for line in f:
@@ -128,7 +127,7 @@ def stream_jsonl_to_postgres(filepath):
 
             
             conn.commit()
-    print("SUCCESS: Database populated")
+    print('SUCCESS: Database populated')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     stream_jsonl_to_postgres('llm_extend_applicant_data.jsonl')

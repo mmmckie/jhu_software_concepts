@@ -12,7 +12,7 @@ def _remove_whitespace(str_):
 
 
 def clean_data(raw_data: list):
-    """
+    '''
     Converts data into a structured format.
     
     Arguments:
@@ -20,7 +20,7 @@ def clean_data(raw_data: list):
 
     Returns:
     cleaned_data: list of dicts containing cleaned entries
-    """
+    '''
 
     cleaned_data = []
     for payload in raw_data:
@@ -64,15 +64,15 @@ def clean_data(raw_data: list):
     return cleaned_data
 
 
-def save_data(cleaned_payloads, path="applicant_data.json"):
-    "Saves cleaned data into applicant_data.json."
+def save_data(cleaned_payloads, path='applicant_data.json'):
+    'Saves cleaned data into applicant_data.json.'
 
     with open(path, 'w') as f:
         json.dump(cleaned_payloads, f)
 
 
 def load_data():
-    "Loads cleaned data from applicant_data.json."
+    'Loads cleaned data from applicant_data.json.'
     with open('applicant_data.json', 'r') as f:
         clean_data = json.load(f)
     return clean_data

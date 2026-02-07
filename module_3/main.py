@@ -7,8 +7,6 @@ from load_data import stream_jsonl_to_postgres, get_existing_urls, get_max_resul
 
 import subprocess
 
-MODULE_DIR = Path(__file__).resolve().parent
-
 
 def _run_LLM_pipeline(input_json_path, output_jsonl_path):
     '''
@@ -18,22 +16,21 @@ def _run_LLM_pipeline(input_json_path, output_jsonl_path):
 
     try:
         # Cmd line args to execute when launching app.py
-        cmd_args = ["--file", f"../{Path(input_json_path).name}", "--stdout"]
+        cmd_args = ['--file', f'../{Path(input_json_path).name}', '--stdout']
 
         # Open the output file in write mode and trigger app.py
-        llm_hosting_dir = MODULE_DIR / "llm_hosting"
-        with open(output_jsonl_path, "w") as output_file:
+        with open(output_jsonl_path, 'w') as output_file:
             subprocess.run(
-                ["python", "app.py"] + cmd_args,
-                cwd=llm_hosting_dir,
+                ['python', 'app.py'] + cmd_args,
+                cwd='llm_hosting',
                 stdout=output_file,  # This replaces the ">" operator
                 check=True
             )
 
-        print("Pipeline executed successfully!")
+        print('Pipeline executed successfully!')
        
     except subprocess.CalledProcessError as e:
-        print(f"The second script failed with error code: {e.returncode}")
+        print(f'The second script failed with error code: {e.returncode}')
 
 
 def main():
@@ -45,33 +42,33 @@ def main():
     cleaned_data = clean_data(raw_data)
 
     # Write cleaned JSON entries to applicant_data.json
-    save_data(cleaned_data, MODULE_DIR / "applicant_data.json")
+    save_data(cleaned_data, 'applicant_data.json')
 
     # Trigger local LLM to standardize program/university fields and write 
     # output to llm_extended_applicant_data.jsonl
     _run_LLM_pipeline(
-        MODULE_DIR / "applicant_data.json",
-        MODULE_DIR / "llm_extend_applicant_data.jsonl",
+        'applicant_data.json',
+        'llm_extend_applicant_data.jsonl',
     )
 
 
 def _append_json_records(records, path):
     path_obj = Path(path)
     if path_obj.exists():
-        with open(path_obj, "r") as f:
+        with open(path_obj, 'r') as f:
             existing = json.load(f)
         if not isinstance(existing, list):
             existing = []
     else:
         existing = []
     existing.extend(records)
-    with open(path_obj, "w") as f:
+    with open(path_obj, 'w') as f:
         json.dump(existing, f)
 
 
 def _append_jsonl_records(source_jsonl_path, target_jsonl_path):
-    with open(source_jsonl_path, "r") as source_file, open(
-        target_jsonl_path, "a"
+    with open(source_jsonl_path, 'r') as source_file, open(
+        target_jsonl_path, 'a'
     ) as target_file:
         for line in source_file:
             if line.strip():
@@ -85,13 +82,13 @@ def update_new_records():
 
     raw_data = scrape_data(min_result_num=min_result_num, existing_urls=existing_urls)
     if not raw_data:
-        return {"status": "no_new"}
+        return {'status': 'no_new'}
 
     cleaned_data = clean_data(raw_data)
-    new_json_path = MODULE_DIR / "applicant_data_new.json"
-    new_jsonl_path = MODULE_DIR / "llm_extend_applicant_data_new.jsonl"
-    full_json_path = MODULE_DIR / "applicant_data.json"
-    full_jsonl_path = MODULE_DIR / "llm_extend_applicant_data.jsonl"
+    new_json_path = 'applicant_data_new.json'
+    new_jsonl_path = 'llm_extend_applicant_data_new.jsonl'
+    full_json_path = 'applicant_data.json'
+    full_jsonl_path = 'llm_extend_applicant_data.jsonl'
 
     save_data(cleaned_data, new_json_path)
     _run_LLM_pipeline(new_json_path, new_jsonl_path)
@@ -100,7 +97,7 @@ def update_new_records():
         new_jsonl_path, full_jsonl_path
     )
     stream_jsonl_to_postgres(str(new_jsonl_path))
-    return {"status": "updated", "records": len(cleaned_data)}
+    return {'status': 'updated', 'records': len(cleaned_data)}
 
 
 if __name__ == '__main__':
