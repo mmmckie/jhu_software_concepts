@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 
+{% block head %}
+  {% if pull_in_progress %}
+    <meta http-equiv="refresh" content="5">
+  {% endif %}
+{% endblock %}
+
 {% block content %}
   <h1>TheGradCafe Analysis</h1>
 
@@ -14,7 +20,7 @@
     </div>
     <div class="analysis-actions-right">
       <form action="{{ url_for('pages.analysis_update') }}" method="post">
-        <button type="submit">Update Analysis</button>
+        <button type="submit" {% if pull_in_progress %}disabled{% endif %}>Update Analysis</button>
       </form>
       <p class="action-note">
         Refreshes the analysis summary using the most up-to-date data currently available.

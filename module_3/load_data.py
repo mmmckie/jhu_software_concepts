@@ -3,14 +3,14 @@ import json
 from datetime import datetime
 
 # For creating/connecting to postgresql database
-base_conn_info = 'dbname=postgres user=postgres host=localhost'
+BASE_CONN_INFO = 'dbname=postgres user=postgres host=localhost'
 DBNAME = 'grad_data'
-conn_info = f'dbname={DBNAME} user=postgres host=localhost'
+CONN_INFO = f'dbname={DBNAME} user=postgres host=localhost'
 
 
 def create_db_if_not_exists():
     # Connect to default 'postgres' db to perform administrative task
-    with psycopg.connect(base_conn_info, autocommit=True) as conn:
+    with psycopg.connect(BASE_CONN_INFO, autocommit=True) as conn:
         with conn.cursor() as cur:
             # Check if grad_data exists
             cur.execute('SELECT 1 FROM pg_database WHERE datname = %s', (DBNAME,))
@@ -24,7 +24,7 @@ def create_db_if_not_exists():
 
 def get_max_result_page():
     try:
-        with psycopg.connect(conn_info) as conn:
+        with psycopg.connect(CONN_INFO) as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT MAX(result_page) FROM admissions;')
                 result = cur.fetchone()
@@ -35,7 +35,7 @@ def get_max_result_page():
 
 def get_existing_urls():
     try:
-        with psycopg.connect(conn_info) as conn:
+        with psycopg.connect(CONN_INFO) as conn:
             with conn.cursor() as cur:
                 cur.execute('SELECT url FROM admissions;')
                 return {row[0] for row in cur.fetchall() if row[0]}
@@ -56,11 +56,10 @@ def stream_jsonl_to_postgres(filepath):
     
     create_db_if_not_exists()
 
-    with psycopg.connect(conn_info) as conn:
+    with psycopg.connect(CONN_INFO) as conn:
         with conn.cursor() as cur:
-            # 1. Create table with proper numeric types
-            # NUMERIC(3, 2) is perfect for GPA (e.g., 4.00)
             
+            # Create table with proper datatypes
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS admissions (
                     p_id SERIAL PRIMARY KEY,
@@ -86,16 +85,17 @@ def stream_jsonl_to_postgres(filepath):
 
             with open(filepath, 'r', encoding='utf-8') as f:
                 for line in f:
-                    # print(type(line))
-                    # print(line.values())
-                    # print(line)
+
+                    # Ensure line isn't just whitespace
                     if not line.strip():
                         continue
-                    # try:
+
+                    # Load record and skip over empty entries
                     record = json.loads(line)
                     if '' in record.values():
                         continue
-                    # 2. Map JSON keys to the Database columns
+
+                    # Map JSON keys to the Database columns
                     cur.execute("""
                         INSERT INTO admissions (
                             university, program, comments, date_added, url,
@@ -106,30 +106,27 @@ def stream_jsonl_to_postgres(filepath):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (url) DO NOTHING
                     """, (
-                        record.get('university'), # + " - " + record.get('program'), # Combined for 'program'
+                        record.get('university'),
                         record.get('program'),
                         record.get('comments'),
-                        format_date(record.get('date added')), # Convert string to Date object
+                        format_date(record.get('date added')),
                         record.get('url'),
                         record.get('application status'),
                         record.get('term'),
                         record.get('US/International'),
                         record.get('GPA'),
-                        record.get('GRE'),   # Using your specified 'gre' field
+                        record.get('GRE'),
                         record.get('GRE V'),
                         record.get('GRE AW'),
                         record.get('degree'),
-                        record.get('llm-generated-program'), # From your LLM step
-                        record.get('llm-generated-university'), # From your LLM step
+                        record.get('llm-generated-program'),
+                        record.get('llm-generated-university'),
                         record.get('url').split('/')[-1]
                     ))
-                    # except Exception as e:
-                    #     print(f'Exception {e} occured. Data in question:')
-                    #     print(line, end = '\n')
-
             
             conn.commit()
     print('SUCCESS: Database populated')
 
+    
 if __name__ == '__main__':
     stream_jsonl_to_postgres('llm_extend_applicant_data.jsonl')

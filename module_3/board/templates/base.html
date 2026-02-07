@@ -3,6 +3,7 @@
 <head>
     <title>{{ title if title else "Max M. McKie" }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <body>
   <div class="content">
