@@ -1,7 +1,8 @@
+import os
 import psycopg
 
 # Use the same connection string as your loader
-conn_info = 'dbname=grad_data user=postgres host=localhost'
+conn_info = os.getenv('DATABASE_URL', 'dbname=grad_data')
 
 def run_analysis():
     results = {}

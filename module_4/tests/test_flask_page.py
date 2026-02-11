@@ -3,12 +3,15 @@ import types
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 from flask import Flask
 
 # Ensure `board` is importable regardless of where pytest is launched.
 MODULE_4_ROOT = Path(__file__).resolve().parents[1]
 if str(MODULE_4_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_4_ROOT))
+
+pytestmark = pytest.mark.web
 
 
 def _fake_results():
@@ -77,7 +80,13 @@ def test_get_analysis_page_loads_expected_content(client):
 
     assert response.status_code == 200
     page = response.get_data(as_text=True)
-    assert "Pull Data" in page
-    assert "Update Analysis" in page
-    assert "Analysis" in page
-    assert "answer" in page.lower()
+    soup = BeautifulSoup(page, "html.parser")
+    assert "Analysis" in soup.get_text(" ")
+
+    pull_btn = soup.select_one('[data-testid="pull-data-btn"]')
+    update_btn = soup.select_one('[data-testid="update-analysis-btn"]')
+    assert pull_btn is not None
+    assert update_btn is not None
+    assert pull_btn.get_text(strip=True) == "Pull Data"
+    assert update_btn.get_text(strip=True) == "Update Analysis"
+    assert soup.find(string=lambda s: s and "Answer:" in s) is not None

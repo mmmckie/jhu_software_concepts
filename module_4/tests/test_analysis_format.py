@@ -10,6 +10,8 @@ MODULE_4_ROOT = Path(__file__).resolve().parents[1]
 if str(MODULE_4_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_4_ROOT))
 
+pytestmark = pytest.mark.analysis
+
 
 def _fake_results():
     return {

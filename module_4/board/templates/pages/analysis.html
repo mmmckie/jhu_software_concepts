@@ -6,7 +6,7 @@
   <div class="analysis-actions">
     <div class="analysis-actions-left">
       <form action="{{ url_for('pages.analysis_pull') }}" method="post">
-        <button type="submit">Pull Data</button>
+        <button type="submit" data-testid="pull-data-btn">Pull Data</button>
       </form>
       <p class="action-note">
         Pulls any new GradCafe results, appends them to your local files, and loads them into the database.
@@ -14,7 +14,7 @@
     </div>
     <div class="analysis-actions-right">
       <form action="{{ url_for('pages.analysis_update') }}" method="post">
-        <button type="submit">Update Analysis</button>
+        <button type="submit" data-testid="update-analysis-btn">Update Analysis</button>
       </form>
       <p class="action-note">
         Refreshes the analysis summary using the most up-to-date data currently available.

@@ -9,6 +9,8 @@ MODULE_4_ROOT = Path(__file__).resolve().parents[1]
 if str(MODULE_4_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_4_ROOT))
 
+pytestmark = pytest.mark.buttons
+
 
 def _fake_results():
     return {
@@ -80,6 +82,8 @@ def test_post_pull_data_returns_200_and_triggers_loader(client, monkeypatch):
     response = client.post("/pull-data")
 
     assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    assert response.get_json()["busy"] is False
     assert calls["loader"] == 1
     assert calls["analysis"] == 1
 
@@ -99,6 +103,8 @@ def test_post_update_analysis_returns_200_when_not_busy(client, monkeypatch):
     response = client.post("/update-analysis")
 
     assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    assert response.get_json()["busy"] is False
     assert calls["analysis"] == 1
 
 
@@ -117,7 +123,8 @@ def test_busy_gating_update_returns_409_and_does_not_update(client, monkeypatch)
     response = client.post("/update-analysis")
 
     assert response.status_code == 409
-    assert "Pull Data is currently running" in response.get_data(as_text=True)
+    assert response.get_json()["busy"] is True
+    assert response.get_json()["ok"] is False
     assert calls["analysis"] == 0
 
 
@@ -141,6 +148,37 @@ def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(client, monkey
     response = client.post("/pull-data")
 
     assert response.status_code == 409
-    assert "Pull Data is already running" in response.get_data(as_text=True)
+    assert response.get_json()["busy"] is True
+    assert response.get_json()["ok"] is False
     assert calls["loader"] == 0
     assert calls["analysis"] == 0
+
+
+def test_dependency_injection_allows_fake_loader_and_query_without_monkeypatch():
+    from board import create_app
+
+    calls = {"loader": 0, "analysis": 0}
+
+    def fake_loader():
+        calls["loader"] += 1
+        return {"status": "updated", "records": 2}
+
+    def fake_analysis():
+        calls["analysis"] += 1
+        return _fake_results()
+
+    app = create_app(
+        test_config={"TESTING": True},
+        run_analysis_fn=fake_analysis,
+        update_new_records_fn=fake_loader,
+    )
+    client = app.test_client()
+
+    response = client.post("/pull-data")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["ok"] is True
+    assert body["records"] == 2
+    assert calls["loader"] == 1
+    assert calls["analysis"] == 1

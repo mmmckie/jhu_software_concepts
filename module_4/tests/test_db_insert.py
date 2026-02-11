@@ -9,6 +9,8 @@ MODULE_4_ROOT = Path(__file__).resolve().parents[1]
 if str(MODULE_4_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_4_ROOT))
 
+pytestmark = pytest.mark.db
+
 
 EXPECTED_QUERY_KEYS = {
     "total_records",
@@ -219,3 +221,25 @@ def test_simple_query_function_returns_expected_keys(client, fake_db, monkeypatc
     result = pages.run_analysis()
     assert isinstance(result, dict)
     assert EXPECTED_QUERY_KEYS.issubset(set(result.keys()))
+
+
+def test_pull_data_loader_error_returns_500_and_no_partial_writes(client, fake_db, monkeypatch):
+    import board.pages as pages
+
+    assert fake_db.count() == 0
+
+    def failing_loader():
+        raise RuntimeError("loader failed")
+
+    monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
+    monkeypatch.setattr(pages, "update_new_records", failing_loader)
+    monkeypatch.setattr(pages, "run_analysis", lambda: _simple_query_dict(fake_db))
+
+    response = client.post("/pull-data")
+
+    assert response.status_code == 500
+    body = response.get_json()
+    assert body["ok"] is False
+    assert body["busy"] is False
+    assert "loader failed" in body["error"]
+    assert fake_db.count() == 0

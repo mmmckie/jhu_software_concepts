@@ -1,12 +1,17 @@
+import os
 import psycopg
 import json
 from datetime import datetime
 
-base_conn_info = 'dbname=postgres user=postgres host=localhost'
+base_conn_info = os.getenv('DATABASE_ADMIN_URL', 'dbname=postgres')
 dbname = 'grad_data'
-conn_info = f'dbname={dbname} user=postgres host=localhost'
+default_conn_info = f'dbname={dbname}'
+conn_info = os.getenv('DATABASE_URL', default_conn_info)
 
 def create_db_if_not_exists():
+    # When DATABASE_URL is explicitly configured, assume DB provisioning is external.
+    if os.getenv('DATABASE_URL'):
+        return
     # Connect to default 'postgres' db to perform administrative task
     with psycopg.connect(base_conn_info, autocommit=True) as conn:
         with conn.cursor() as cur:

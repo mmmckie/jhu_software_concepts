@@ -1,12 +1,29 @@
-from flask import Blueprint, render_template
-from flask import redirect, url_for, request
+from flask import Blueprint, current_app, jsonify, render_template, request
 
 bp = Blueprint('pages', __name__)
 
-from query_data import run_analysis
-from main import update_new_records
+try:
+    from query_data import run_analysis
+    from main import update_new_records
+except ModuleNotFoundError:
+    from src.query_data import run_analysis
+    from src.main import update_new_records
 
 _PULL_IN_PROGRESS = False
+
+
+def _is_api_route():
+    return request.path in {"/pull-data", "/update-analysis"}
+
+
+def _run_analysis_service():
+    fn = current_app.config.get("RUN_ANALYSIS_FN", run_analysis)
+    return fn()
+
+
+def _update_new_records_service():
+    fn = current_app.config.get("UPDATE_NEW_RECORDS_FN", update_new_records)
+    return fn()
 
 def _empty_results():
     return {
@@ -34,7 +51,7 @@ def _empty_results():
 @bp.route('/analysis')
 def analysis():
     try:
-        results = run_analysis()
+        results = _run_analysis_service()
         return render_template(
             'pages/analysis.html',
             results=results,
@@ -53,6 +70,8 @@ def analysis():
 def analysis_pull():
     global _PULL_IN_PROGRESS
     if _PULL_IN_PROGRESS:
+        if _is_api_route():
+            return jsonify({"busy": True, "ok": False}), 409
         return (
             render_template(
                 'pages/analysis.html',
@@ -64,9 +83,18 @@ def analysis_pull():
         )
     try:
         _PULL_IN_PROGRESS = True
-        update_status = update_new_records()
-        results = run_analysis()
+        update_status = _update_new_records_service()
+        results = _run_analysis_service()
         _PULL_IN_PROGRESS = False
+        if _is_api_route():
+            return jsonify(
+                {
+                    "busy": False,
+                    "ok": True,
+                    "records": update_status.get("records", 0),
+                    "status": update_status.get("status"),
+                }
+            ), 200
         return render_template(
             'pages/analysis.html',
             results=results,
@@ -76,6 +104,8 @@ def analysis_pull():
         )
     except Exception as exc:
         _PULL_IN_PROGRESS = False
+        if _is_api_route():
+            return jsonify({"busy": False, "ok": False, "error": str(exc)}), 500
         return render_template(
             'pages/analysis.html',
             error=str(exc),
@@ -87,6 +117,8 @@ def analysis_pull():
 @bp.route('/update-analysis', methods=['POST'])
 def analysis_update():
     if _PULL_IN_PROGRESS:
+        if _is_api_route():
+            return jsonify({"busy": True, "ok": False}), 409
         return (
             render_template(
                 'pages/analysis.html',
@@ -97,7 +129,9 @@ def analysis_update():
             409,
         )
     try:
-        results = run_analysis()
+        results = _run_analysis_service()
+        if _is_api_route():
+            return jsonify({"busy": False, "ok": True}), 200
         return render_template(
             'pages/analysis.html',
             results=results,
@@ -105,6 +139,8 @@ def analysis_update():
             info_message='Analysis updated with the latest available data.',
         )
     except Exception as exc:
+        if _is_api_route():
+            return jsonify({"busy": False, "ok": False, "error": str(exc)}), 500
         return render_template(
             'pages/analysis.html',
             error=str(exc),

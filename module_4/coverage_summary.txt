@@ -1,0 +1,17 @@
+$ /home/max_laptop/Documents/code/.mod4/bin/python -m pytest
+..............................                                           [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.3-final-0 ________________
+
+Name                Stmts   Miss  Cover   Missing
+-------------------------------------------------
+src/clean.py           37      0   100%
+src/load_data.py       61      0   100%
+src/main.py            55      0   100%
+src/query_data.py      93      0   100%
+src/run.py              4      0   100%
+src/scrape.py         159      0   100%
+-------------------------------------------------
+TOTAL                 409      0   100%
+Required test coverage of 100% reached. Total coverage: 100.00%
+30 passed in 1.01s
