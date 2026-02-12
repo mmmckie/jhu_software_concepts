@@ -17,15 +17,26 @@ def _run_LLM_pipeline(input_json_path, output_jsonl_path):
     try:
         # Cmd line args to execute when launching app.py
         cmd_args = ['--file', f'../{Path(input_json_path).name}', '--stdout']
+        script_dir = Path(__file__).resolve().parent
+        llm_hosting_dir = script_dir / 'llm_hosting'
 
         # Open the output file in write mode and trigger app.py
         with open(output_jsonl_path, 'w') as output_file:
-            subprocess.run(
-                ['python', 'app.py'] + cmd_args,
-                cwd='llm_hosting',
-                stdout=output_file,  # This replaces the ">" operator
-                check=True
-            )
+            try:
+                subprocess.run(
+                    ['python', 'app.py'] + cmd_args,
+                    cwd='llm_hosting',
+                    stdout=output_file,  # This replaces the ">" operator
+                    check=True
+                )
+            except FileNotFoundError:
+                # Support invocation from outside src/ (e.g., `python src/run.py`).
+                subprocess.run(
+                    ['python', 'app.py'] + cmd_args,
+                    cwd=str(llm_hosting_dir),
+                    stdout=output_file,
+                    check=True
+                )
 
         print('Pipeline executed successfully!')
        
@@ -85,16 +96,17 @@ def update_new_records():
         return {'status': 'no_new'}
 
     cleaned_data = clean_data(raw_data)
-    new_json_path = 'applicant_data_new.json'
-    new_jsonl_path = 'llm_extend_applicant_data_new.jsonl'
-    full_json_path = 'applicant_data.json'
-    full_jsonl_path = 'llm_extend_applicant_data.jsonl'
+    src_dir = Path(__file__).resolve().parent
+    new_json_path = src_dir / 'applicant_data_new.json'
+    new_jsonl_path = src_dir / 'llm_extend_applicant_data_new.jsonl'
+    full_json_path = src_dir / 'applicant_data.json'
+    full_jsonl_path = src_dir / 'llm_extend_applicant_data.jsonl'
 
-    save_data(cleaned_data, new_json_path)
-    _run_LLM_pipeline(new_json_path, new_jsonl_path)
-    _append_json_records(cleaned_data, full_json_path)
+    save_data(cleaned_data, str(new_json_path))
+    _run_LLM_pipeline(str(new_json_path), str(new_jsonl_path))
+    _append_json_records(cleaned_data, str(full_json_path))
     _append_jsonl_records(
-        new_jsonl_path, full_jsonl_path
+        str(new_jsonl_path), str(full_jsonl_path)
     )
     stream_jsonl_to_postgres(str(new_jsonl_path))
     return {'status': 'updated', 'records': len(cleaned_data)}

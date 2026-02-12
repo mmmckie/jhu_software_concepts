@@ -1,3 +1,2 @@
 __pycache__
-module_2/llm_hosting/models/
-module_3/llm_hosting/models
+**/models/

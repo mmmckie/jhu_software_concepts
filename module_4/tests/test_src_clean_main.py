@@ -98,6 +98,26 @@ def test_main_run_llm_pipeline_success_and_error(tmp_path, monkeypatch, capsys):
     assert "failed with error code: 3" in capsys.readouterr().out
 
 
+def test_main_run_llm_pipeline_falls_back_to_src_llm_hosting(tmp_path, monkeypatch, capsys):
+    import main
+
+    monkeypatch.chdir(tmp_path)
+    calls = []
+
+    def fake_run_with_missing_cwd(cmd, cwd, stdout, check):
+        calls.append(cwd)
+        if cwd == "llm_hosting":
+            raise FileNotFoundError("llm_hosting")
+        assert cwd.endswith("/src/llm_hosting")
+
+    monkeypatch.setattr(main.subprocess, "run", fake_run_with_missing_cwd)
+    main._run_LLM_pipeline("applicant_data_new.json", "out_fallback.jsonl")
+
+    assert calls[0] == "llm_hosting"
+    assert len(calls) == 2
+    assert "Pipeline executed successfully!" in capsys.readouterr().out
+
+
 def test_main_append_helpers_and_main_flow(tmp_path, monkeypatch):
     import main
 
@@ -153,8 +173,8 @@ def test_main_update_new_records_no_new_and_updated(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "stream_jsonl_to_postgres", lambda p: calls.append(("stream", p)))
     out = main.update_new_records()
     assert out == {"status": "updated", "records": 1}
-    assert ("save", "applicant_data_new.json") in calls
-    assert ("stream", "llm_extend_applicant_data_new.jsonl") in calls
+    assert any(call[0] == "save" and Path(call[1]).name == "applicant_data_new.json" for call in calls)
+    assert any(call[0] == "stream" and Path(call[1]).name == "llm_extend_applicant_data_new.jsonl" for call in calls)
 
 
 def test_main_module_main_guard_executes(monkeypatch):
