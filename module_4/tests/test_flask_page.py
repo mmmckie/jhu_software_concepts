@@ -64,18 +64,17 @@ def client(app):
     return app.test_client()
 
 
-def test_app_factory_creates_testable_app_with_required_routes(app):
+@pytest.mark.parametrize("required_route", ["/", "/analysis", "/pull", "/update"])
+def test_app_factory_creates_testable_app_with_required_routes(app, required_route):
+    """Verify the Flask app factory exposes each required core route."""
     assert isinstance(app, Flask)
     assert app.config["TESTING"] is True
 
-    routes = {rule.rule for rule in app.url_map.iter_rules()}
-    assert "/" in routes
-    assert "/analysis" in routes
-    assert "/pull" in routes
-    assert "/update" in routes
+    assert app.url_map.bind("").match(required_route, method="GET" if required_route in {"/", "/analysis"} else "POST")
 
 
 def test_get_analysis_page_loads_expected_content(client):
+    """Validate analysis page load and presence of expected UI controls/content."""
     response = client.get("/analysis")
 
     assert response.status_code == 200

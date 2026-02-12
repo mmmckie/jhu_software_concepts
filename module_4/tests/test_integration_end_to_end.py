@@ -161,6 +161,7 @@ def client(app):
 
 
 def test_end_to_end_pull_update_render(client, monkeypatch):
+    """Verify end-to-end pull then update flow populates and renders analysis."""
     import board.pages as pages
 
     fake_db = FakeAdmissionsDB()
@@ -198,6 +199,7 @@ def test_end_to_end_pull_update_render(client, monkeypatch):
 
 
 def test_multiple_pulls_with_overlapping_data_follow_uniqueness_policy(client, monkeypatch):
+    """Verify repeated pulls honor uniqueness constraints across overlapping data."""
     import board.pages as pages
 
     fake_db = FakeAdmissionsDB()

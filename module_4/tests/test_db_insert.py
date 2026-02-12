@@ -160,6 +160,7 @@ def fake_db():
 
 
 def test_insert_on_pull_before_empty_after_rows_with_required_fields(client, fake_db, monkeypatch):
+    """Ensure pull inserts valid rows and required fields remain populated."""
     import board.pages as pages
 
     scraper_rows = _make_scraper_rows()
@@ -186,6 +187,7 @@ def test_insert_on_pull_before_empty_after_rows_with_required_fields(client, fak
 
 
 def test_idempotency_duplicate_rows_do_not_create_duplicates(client, fake_db, monkeypatch):
+    """Ensure duplicate source rows do not create duplicate DB records."""
     import board.pages as pages
 
     scraper_rows = _make_scraper_rows()
@@ -210,6 +212,7 @@ def test_idempotency_duplicate_rows_do_not_create_duplicates(client, fake_db, mo
 
 
 def test_simple_query_function_returns_expected_keys(client, fake_db, monkeypatch):
+    """Ensure analysis payload includes all expected top-level metric keys."""
     import board.pages as pages
 
     scraper_rows = _make_scraper_rows()
@@ -224,6 +227,7 @@ def test_simple_query_function_returns_expected_keys(client, fake_db, monkeypatc
 
 
 def test_pull_data_loader_error_returns_500_and_no_partial_writes(client, fake_db, monkeypatch):
+    """Ensure loader failure returns 500 and leaves DB unchanged."""
     import board.pages as pages
 
     assert fake_db.count() == 0

@@ -65,6 +65,7 @@ def client(app):
 
 
 def test_analysis_page_renders_error_when_analysis_raises(client, monkeypatch):
+    """Ensure non-API analysis page renders error text when analysis fails."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "run_analysis", lambda: (_ for _ in ()).throw(RuntimeError("analysis failed")))
@@ -78,6 +79,7 @@ def test_analysis_page_renders_error_when_analysis_raises(client, monkeypatch):
 
 
 def test_pull_non_api_busy_returns_409_with_info_message(client, monkeypatch):
+    """Ensure non-API pull returns 409 with busy informational message."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", True)
@@ -90,6 +92,7 @@ def test_pull_non_api_busy_returns_409_with_info_message(client, monkeypatch):
 
 
 def test_pull_non_api_success_returns_html(client, monkeypatch):
+    """Ensure non-API pull success returns HTML with pull-in-progress guidance."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
@@ -104,6 +107,7 @@ def test_pull_non_api_success_returns_html(client, monkeypatch):
 
 
 def test_pull_non_api_error_returns_html(client, monkeypatch):
+    """Ensure non-API pull failure still returns HTML response with status guidance."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
@@ -117,6 +121,7 @@ def test_pull_non_api_error_returns_html(client, monkeypatch):
 
 
 def test_update_non_api_busy_returns_409_with_info_message(client, monkeypatch):
+    """Ensure non-API update during pull is blocked and message is shown."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", True)
@@ -130,6 +135,7 @@ def test_update_non_api_busy_returns_409_with_info_message(client, monkeypatch):
 
 
 def test_update_button_renders_disabled_while_pull_in_progress(client, monkeypatch):
+    """Ensure Update Analysis button is disabled while pull is in progress."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", True)
@@ -142,6 +148,7 @@ def test_update_button_renders_disabled_while_pull_in_progress(client, monkeypat
 
 
 def test_update_non_api_success_returns_html(client, monkeypatch):
+    """Ensure non-API update success renders confirmation message."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
@@ -155,6 +162,7 @@ def test_update_non_api_success_returns_html(client, monkeypatch):
 
 
 def test_update_non_api_error_returns_html(client, monkeypatch):
+    """Ensure non-API update failure renders HTML error details."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
@@ -169,6 +177,7 @@ def test_update_non_api_error_returns_html(client, monkeypatch):
 
 
 def test_update_api_error_returns_500_json(client, monkeypatch):
+    """Ensure API update endpoint returns structured 500 JSON on failures."""
     import board.pages as pages
 
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
@@ -184,6 +193,7 @@ def test_update_api_error_returns_500_json(client, monkeypatch):
 
 
 def test_pages_import_uses_src_fallback_when_top_level_modules_missing(monkeypatch):
+    """Ensure pages module fallback imports from ``src.*`` when top-level imports fail."""
     pages_path = MODULE_4_ROOT / "src" / "board" / "pages.py"
 
     fake_src_query = types.ModuleType("src.query_data")

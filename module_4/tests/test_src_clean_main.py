@@ -35,6 +35,7 @@ def _sample_payload(term="Fall 2026"):
 
 
 def test_clean_remove_whitespace_and_clean_data_branches():
+    """Validate whitespace stripping and optional-field normalization branches."""
     import clean
 
     assert clean._remove_whitespace("a\nb\tc") == "abc"
@@ -60,6 +61,7 @@ def test_clean_remove_whitespace_and_clean_data_branches():
 
 
 def test_clean_save_and_load_data(tmp_path, monkeypatch):
+    """Validate JSON save/load helpers for cleaned payloads."""
     import clean
 
     data = [{"x": 1}, {"x": 2}]
@@ -73,6 +75,7 @@ def test_clean_save_and_load_data(tmp_path, monkeypatch):
 
 
 def test_main_run_llm_pipeline_success_and_error(tmp_path, monkeypatch, capsys):
+    """Validate LLM pipeline subprocess success path and handled error path."""
     import main
 
     monkeypatch.chdir(tmp_path)
@@ -99,6 +102,7 @@ def test_main_run_llm_pipeline_success_and_error(tmp_path, monkeypatch, capsys):
 
 
 def test_main_run_llm_pipeline_falls_back_to_src_llm_hosting(tmp_path, monkeypatch, capsys):
+    """Validate fallback ``src/llm_hosting`` working-directory resolution."""
     import main
 
     monkeypatch.chdir(tmp_path)
@@ -119,6 +123,7 @@ def test_main_run_llm_pipeline_falls_back_to_src_llm_hosting(tmp_path, monkeypat
 
 
 def test_main_append_helpers_and_main_flow(tmp_path, monkeypatch):
+    """Validate append helpers and top-level main orchestration sequencing."""
     import main
 
     monkeypatch.chdir(tmp_path)
@@ -152,6 +157,7 @@ def test_main_append_helpers_and_main_flow(tmp_path, monkeypatch):
 
 
 def test_main_update_new_records_no_new_and_updated(tmp_path, monkeypatch):
+    """Validate incremental update flow for both no-new and updated outcomes."""
     import main
 
     monkeypatch.chdir(tmp_path)
@@ -178,6 +184,7 @@ def test_main_update_new_records_no_new_and_updated(tmp_path, monkeypatch):
 
 
 def test_main_module_main_guard_executes(monkeypatch):
+    """Validate ``main.py`` script guard executes pipeline side effects."""
     fake_scrape = types.ModuleType("scrape")
     fake_scrape.scrape_data = lambda: []
     fake_clean = types.ModuleType("clean")

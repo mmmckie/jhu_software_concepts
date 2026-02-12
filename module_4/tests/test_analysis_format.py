@@ -64,6 +64,7 @@ def client(app):
 
 
 def test_analysis_page_includes_answer_labels(client):
+    """Ensure the rendered analysis page includes answer label text."""
     response = client.get("/analysis")
     assert response.status_code == 200
 
@@ -72,6 +73,7 @@ def test_analysis_page_includes_answer_labels(client):
 
 
 def test_percentages_are_formatted_with_two_decimals(client):
+    """Ensure percentage fields are rendered with two decimal places."""
     response = client.get("/analysis")
     assert response.status_code == 200
 

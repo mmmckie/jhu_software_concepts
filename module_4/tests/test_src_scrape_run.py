@@ -30,6 +30,7 @@ class DummyResponse:
 
 
 def test_scrape_fetch_table_and_result_pages(monkeypatch, capsys):
+    """Validate table/result scraping success paths and handled fetch failures."""
     import scrape
 
     assert scrape._is_restricted_path("https://x/cgi-bin/a")
@@ -97,6 +98,7 @@ def test_scrape_fetch_table_and_result_pages(monkeypatch, capsys):
 
 
 def test_scrape_concurrency_get_payloads_and_filtering(monkeypatch):
+    """Validate concurrency helper behavior and scrape-data filtering logic."""
     import scrape
 
     # _concurrent_scraper for list returns + exception path
@@ -137,6 +139,7 @@ def test_scrape_concurrency_get_payloads_and_filtering(monkeypatch):
 
 
 def test_scrape_uncovered_branches_for_table_result_and_filter_append(monkeypatch):
+    """Exercise additional scrape branches for coverage-sensitive edge cases."""
     import scrape
 
     monkeypatch.setattr(scrape, "_is_restricted_path", lambda url: False)
@@ -187,6 +190,7 @@ def test_scrape_uncovered_branches_for_table_result_and_filter_append(monkeypatc
 
 
 def test_run_module_main_guard(monkeypatch):
+    """Validate ``run.py`` script guard boots app and calls ``app.run``."""
     fake_board = types.ModuleType("board")
 
     class FakeApp:

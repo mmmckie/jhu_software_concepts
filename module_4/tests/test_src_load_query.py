@@ -60,6 +60,7 @@ class FakeConn:
 
 
 def test_load_data_helpers_and_stream_jsonl(monkeypatch, tmp_path, capsys):
+    """Validate DB helper branches and JSONL-to-Postgres ingest behavior."""
     import load_data
 
     # create_db_if_not_exists -> create branch
@@ -147,6 +148,7 @@ def test_load_data_helpers_and_stream_jsonl(monkeypatch, tmp_path, capsys):
 
 
 def test_database_url_env_override(monkeypatch):
+    """Ensure explicit ``DATABASE_URL`` bypasses auto DB creation logic."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host:5432/testdb")
 
     import load_data
@@ -166,6 +168,7 @@ def test_database_url_env_override(monkeypatch):
 
 
 def test_load_data_main_guard(monkeypatch, tmp_path):
+    """Validate ``load_data.py`` script guard executes ingest flow."""
     fake_psycopg = types.ModuleType("psycopg")
 
     class Ctx(FakeConn):
@@ -181,6 +184,7 @@ def test_load_data_main_guard(monkeypatch, tmp_path):
 
 
 def test_query_data_run_analysis_and_execute_query_error(monkeypatch):
+    """Validate query aggregation outputs and execute_query error wrapping."""
     import query_data
     real_execute_query = query_data.execute_query
 
@@ -244,6 +248,7 @@ def test_query_data_run_analysis_and_execute_query_error(monkeypatch):
 
 
 def test_query_data_main_guard(monkeypatch, capsys):
+    """Validate ``query_data.py`` script guard prints expected summary lines."""
     fake_psycopg = types.ModuleType("psycopg")
 
     class QCursor(FakeCursor):

@@ -63,6 +63,7 @@ def client(app):
 
 
 def test_post_pull_data_returns_200_and_triggers_loader(client, monkeypatch):
+    """Verify API pull endpoint runs loader+analysis and returns success JSON."""
     import board.pages as pages
 
     calls = {"loader": 0, "analysis": 0}
@@ -89,6 +90,7 @@ def test_post_pull_data_returns_200_and_triggers_loader(client, monkeypatch):
 
 
 def test_post_update_analysis_returns_200_when_not_busy(client, monkeypatch):
+    """Verify API update endpoint executes analysis when pull is not busy."""
     import board.pages as pages
 
     calls = {"analysis": 0}
@@ -109,6 +111,7 @@ def test_post_update_analysis_returns_200_when_not_busy(client, monkeypatch):
 
 
 def test_busy_gating_update_returns_409_and_does_not_update(client, monkeypatch):
+    """Verify busy-state blocks API update and does not invoke analysis."""
     import board.pages as pages
 
     calls = {"analysis": 0}
@@ -129,6 +132,7 @@ def test_busy_gating_update_returns_409_and_does_not_update(client, monkeypatch)
 
 
 def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(client, monkeypatch):
+    """Verify busy-state blocks API pull and does not invoke loader/analysis."""
     import board.pages as pages
 
     calls = {"loader": 0, "analysis": 0}
@@ -155,6 +159,7 @@ def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(client, monkey
 
 
 def test_dependency_injection_allows_fake_loader_and_query_without_monkeypatch():
+    """Verify app-factory dependency injection drives pull endpoint behavior."""
     from board import create_app
 
     calls = {"loader": 0, "analysis": 0}
