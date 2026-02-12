@@ -7,10 +7,6 @@ Steps to run analysis webpage on localhost:
 (5) $pip install -r requirements.txt
 (6) $python run.py
 
-Sphinx docs:
+Documentation:
 
-(1) Ensure current working directory is jhu_software_concepts/module_4
-(2) $pip install -r docs/requirements.txt
-(3) $cd docs
-(4) $make html
-(5) Open docs/_build/html/index.html in your browser
+https://mmmckie-jhu-software-concepts.readthedocs.io/en/latest/

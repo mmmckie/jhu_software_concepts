@@ -4,7 +4,7 @@ Course repository containing modules 1-4.
 
 ## Documentation
 
-- Module 4 Sphinx docs (Read the Docs): https://jhu-software-concepts.readthedocs.io/en/latest/
+- Module 4 Sphinx docs (Read the Docs): https://mmmckie-jhu-software-concepts.readthedocs.io/en/latest/
 
 ## Module directories
 
