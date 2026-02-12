@@ -4,11 +4,11 @@ on:
   push:
     paths:
       - "module_4/**"
-      - ".github/workflows/module4-pytest.yml"
+      - ".github/workflows/tests.yml"
   pull_request:
     paths:
       - "module_4/**"
-      - ".github/workflows/module4-pytest.yml"
+      - ".github/workflows/tests.yml"
 
 jobs:
   test:

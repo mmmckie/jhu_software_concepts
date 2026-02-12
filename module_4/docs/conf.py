@@ -22,6 +22,10 @@ extensions = [
 autosummary_generate = True
 autodoc_member_order = 'bysource'
 autodoc_typehints = 'description'
+autodoc_mock_imports = [
+    "psycopg",
+    "bs4",
+]
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,
