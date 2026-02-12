@@ -30,8 +30,10 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grad_data
-      DATABASE_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
 
     steps:
       - name: Checkout
