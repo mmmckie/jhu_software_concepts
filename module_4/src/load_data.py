@@ -1,3 +1,5 @@
+"""PostgreSQL load helpers for admissions JSONL data."""
+
 import os
 import psycopg
 import json
@@ -9,6 +11,14 @@ default_conn_info = f'dbname={dbname}'
 conn_info = os.getenv('DATABASE_URL', default_conn_info)
 
 def create_db_if_not_exists():
+    """Create the ``grad_data`` database when unmanaged local defaults are used.
+
+    If ``DATABASE_URL`` is explicitly set, provisioning is assumed to be
+    managed externally and this function exits immediately.
+
+    :returns: ``None``.
+    :rtype: None
+    """
     # When DATABASE_URL is explicitly configured, assume DB provisioning is external.
     if os.getenv('DATABASE_URL'):
         return
@@ -26,6 +36,11 @@ def create_db_if_not_exists():
                 print(f'Database {dbname} already exists.')
 
 def get_max_result_page():
+    """Fetch the highest ingested GradCafe result-page number.
+
+    :returns: Maximum ``result_page`` value, or ``None`` if unavailable.
+    :rtype: int | None
+    """
     try:
         with psycopg.connect(conn_info) as conn:
             with conn.cursor() as cur:
@@ -37,6 +52,11 @@ def get_max_result_page():
 
 
 def get_existing_urls():
+    """Fetch all existing admissions URLs currently stored in PostgreSQL.
+
+    :returns: Set of unique URL strings, or empty set on connection/query error.
+    :rtype: set[str]
+    """
     try:
         with psycopg.connect(conn_info) as conn:
             with conn.cursor() as cur:
@@ -47,7 +67,13 @@ def get_existing_urls():
 
 
 def format_date(date_str):
-    '''Converts 'January 28, 2026' to '2026-01-28' for Postgres.'''
+    """Convert date text to a ``date`` object compatible with PostgreSQL.
+
+    :param date_str: Date string in ``'%B %d, %Y'`` format.
+    :type date_str: str | None
+    :returns: Parsed date or ``None`` when missing/invalid.
+    :rtype: datetime.date | None
+    """
     if not date_str:
         return None
     try:
@@ -56,7 +82,18 @@ def format_date(date_str):
         return None
 
 def stream_jsonl_to_postgres(filepath):
-    
+    """Stream JSONL records into PostgreSQL admissions table.
+
+    The function creates the target table/index when needed, inserts rows with
+    ``ON CONFLICT (url) DO NOTHING``, and commits once all valid records are
+    processed.
+
+    :param filepath: Path to line-delimited JSON records.
+    :type filepath: str
+    :returns: ``None``.
+    :rtype: None
+    :raises Exception: Propagates unexpected filesystem or database errors.
+    """
     create_db_if_not_exists()
 
     with psycopg.connect(conn_info) as conn:

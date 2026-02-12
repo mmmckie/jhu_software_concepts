@@ -1,3 +1,5 @@
+"""Route handlers for the analysis dashboard and pull/update actions."""
+
 import threading
 import traceback
 
@@ -19,19 +21,39 @@ _PULL_ERROR_PENDING = None
 
 
 def _is_api_route():
+    """Check whether the current request targets JSON API endpoints.
+
+    :returns: ``True`` for ``/pull-data`` or ``/update-analysis`` routes.
+    :rtype: bool
+    """
     return request.path in {"/pull-data", "/update-analysis"}
 
 
 def _run_analysis_service():
+    """Resolve and execute the configured analysis function.
+
+    :returns: Analysis result payload.
+    :rtype: dict
+    """
     fn = current_app.config.get("RUN_ANALYSIS_FN", run_analysis)
     return fn()
 
 
 def _update_new_records_service():
+    """Resolve and execute the configured pull/update function.
+
+    :returns: Pull/update status payload.
+    :rtype: dict
+    """
     fn = current_app.config.get("UPDATE_NEW_RECORDS_FN", update_new_records)
     return fn()
 
 def _empty_results():
+    """Return a zeroed analysis payload for guarded/busy template responses.
+
+    :returns: Default analysis result map with all metrics set to zero.
+    :rtype: dict[str, object]
+    """
     return {
         "total_records": 0,
         "fall_2026_applicants": 0,
@@ -56,6 +78,14 @@ def _empty_results():
 @bp.route('/')
 @bp.route('/analysis')
 def analysis():
+    """Render the analysis dashboard page.
+
+    Pending status/error messages from asynchronous pull operations are consumed
+    on this request and included in template context.
+
+    :returns: Rendered HTML response.
+    :rtype: str
+    """
     global _PULL_MESSAGE_PENDING, _PULL_ERROR_PENDING
     info_message = None
     error_message = None
@@ -97,6 +127,15 @@ def analysis():
 @bp.route('/pull', methods=['POST'])
 @bp.route('/pull-data', methods=['POST'])
 def analysis_pull():
+    """Handle pull-data requests for both browser and API clients.
+
+    Browser ``/pull`` requests are executed asynchronously and redirected back
+    to the dashboard. API ``/pull-data`` requests are handled synchronously and
+    return JSON status.
+
+    :returns: Redirect/HTML response for browser routes or JSON for API routes.
+    :rtype: flask.Response | tuple[flask.Response, int]
+    """
     global _PULL_IN_PROGRESS, _PULL_MESSAGE_PENDING, _PULL_ERROR_PENDING
     is_api = _is_api_route()
     with _PULL_LOCK:
@@ -118,6 +157,15 @@ def analysis_pull():
         app_obj = current_app._get_current_object()
 
         def _pull_worker(app, fn):
+            """Execute pull work in a background thread.
+
+            :param app: Flask application object for context binding.
+            :type app: flask.Flask
+            :param fn: Pull/update callable to invoke.
+            :type fn: collections.abc.Callable
+            :returns: ``None``.
+            :rtype: None
+            """
             global _PULL_IN_PROGRESS, _PULL_ERROR_PENDING
             try:
                 with app.app_context():
@@ -160,6 +208,14 @@ def analysis_pull():
 @bp.route('/update', methods=['POST'])
 @bp.route('/update-analysis', methods=['POST'])
 def analysis_update():
+    """Handle analysis-refresh requests for browser and API clients.
+
+    Update requests are blocked while a pull is in progress. Browser requests
+    render template responses; API requests return JSON statuses.
+
+    :returns: Redirect/HTML response for browser routes or JSON for API routes.
+    :rtype: flask.Response | tuple[flask.Response, int]
+    """
     global _PULL_MESSAGE_PENDING
     with _PULL_LOCK:
         pull_in_progress = _PULL_IN_PROGRESS

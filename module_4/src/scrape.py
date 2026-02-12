@@ -1,3 +1,5 @@
+"""GradCafe scraping helpers for survey and result-page extraction."""
+
 from urllib.request import urlopen
 from urllib import error, request
 from bs4 import BeautifulSoup
@@ -27,7 +29,13 @@ AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 
 def _is_restricted_path(url):
-    '''Checks for URL paths restricted by robots.txt'''
+    """Check whether a URL path is disallowed by configured robots rules.
+
+    :param url: Absolute URL to validate.
+    :type url: str
+    :returns: ``True`` when the URL contains a disallowed path prefix.
+    :rtype: bool
+    """
     for restricted_path in DISALLOWED_PAGES:
         if restricted_path in url:
             return True
@@ -36,13 +44,12 @@ def _is_restricted_path(url):
 
 def _fetch_table_page(page_num):
     """
-    Fetches a single page and parses the table rows.
-    
-    Arguments:
-    page_num: int designating which /survey/ page to gather data from
-    
-    Returns:
-    parsed_data: list of lists containing gathered information from each page entry
+    Fetch and parse a single ``/survey`` page.
+
+    :param page_num: Survey page number to request.
+    :type page_num: int
+    :returns: Parsed rows from the table, grouped by record.
+    :rtype: list[list[str]]
     """
 
     url = f"{BASE_URL}/survey/?page={page_num}"
@@ -107,6 +114,13 @@ def _fetch_table_page(page_num):
 
 
 def _extract_result_num(url):
+    """Extract integer result id from a result URL.
+
+    :param url: URL containing a trailing result identifier segment.
+    :type url: str
+    :returns: Parsed result id or ``None`` when invalid.
+    :rtype: int | None
+    """
     try:
         return int(url.rstrip('/').split('/')[-1])
     except (ValueError, AttributeError):
@@ -114,7 +128,15 @@ def _extract_result_num(url):
 
 
 def _fetch_result_page(url, payload):
-    """Fetches a single result page and parses the data."""
+    """Fetch one result page and populate a payload dictionary.
+
+    :param url: Absolute result page URL.
+    :type url: str
+    :param payload: Existing payload map seeded from survey-table fields.
+    :type payload: dict[str, str]
+    :returns: Updated payload, or empty dict on failure.
+    :rtype: dict[str, str]
+    """
 
     # Check for restricted URLs from robots.txt
     if _is_restricted_path(url):
@@ -189,16 +211,18 @@ def _fetch_result_page(url, payload):
 
 def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None):
     """
-    Generic thread manager for scraping with parallel threads.
-    
-    Arguments:
-    worker_func: The function to execute (_fetch_table_page or _fetch_result_page)
-    tasks: The list or range of items to process
-    is_mapping: Boolean, set to True if payloads need to be mapped from a dict
+    Execute scraping tasks concurrently and aggregate successful results.
 
-    Returns:
-    all_results: list or list[Dict{str, str}] depending on which function is
-                 executed
+    :param worker_func: Callable executed per task.
+    :type worker_func: collections.abc.Callable
+    :param tasks: Task iterable passed to worker function(s).
+    :type tasks: collections.abc.Iterable
+    :param is_mapping: Whether each task maps to ``all_payloads[task]`` arg pair.
+    :type is_mapping: bool
+    :param all_payloads: Payload lookup table used when ``is_mapping=True``.
+    :type all_payloads: dict | None
+    :returns: Combined worker outputs.
+    :rtype: list
     """
 
     all_results = []
@@ -236,11 +260,16 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
 
 
 def _get_raw_payloads(data_rows):
-    '''
-    Takes the result URLS and some fields from the tables on each page,
-    creates the initial payload, then fills in the remaining fields using the
-    results page. Writes all results to json at end.
-    '''
+    """Build full raw payloads from collected survey rows.
+
+    The function seeds payloads from table rows, then fetches each linked result
+    page to fill remaining fields.
+
+    :param data_rows: Parsed survey table rows.
+    :type data_rows: list[list[str]]
+    :returns: Fully-populated payload dictionaries.
+    :rtype: list[dict[str, str]]
+    """
     all_payloads = {}
     for row in data_rows:
         payload = {
@@ -286,7 +315,15 @@ def _get_raw_payloads(data_rows):
 
 
 def scrape_data(min_result_num=None, existing_urls=None):
-    "Pulls admissions data from GradCafe."
+    """Scrape admissions records from GradCafe.
+
+    :param min_result_num: Optional lower-bound result id filter.
+    :type min_result_num: int | None
+    :param existing_urls: Optional URL set to skip already-ingested records.
+    :type existing_urls: set[str] | None
+    :returns: Raw scraped payload list.
+    :rtype: list[dict[str, str]]
+    """
 
     t1 = time.time()
     # Collect data from /survey/ pages

@@ -1,3 +1,5 @@
+"""Orchestration workflow for scrape, clean, normalize, and load operations."""
+
 import json
 from pathlib import Path
 
@@ -9,10 +11,18 @@ import subprocess
 
 
 def _run_LLM_pipeline(input_json_path, output_jsonl_path):
-    '''
-    Calls llm_hosting/app.py via subprocess to pass the data to local LLM
-    for cleaning/standardization.
-    '''
+    """Run the local LLM normalization script over a JSON input file.
+
+    The function invokes ``llm_hosting/app.py`` as a subprocess and writes
+    line-delimited JSON output incrementally to the requested file.
+
+    :param input_json_path: Path to JSON input payload.
+    :type input_json_path: str
+    :param output_jsonl_path: Path where normalized JSONL should be written.
+    :type output_jsonl_path: str
+    :returns: ``None``.
+    :rtype: None
+    """
 
     try:
         # Cmd line args to execute when launching app.py
@@ -45,6 +55,14 @@ def _run_LLM_pipeline(input_json_path, output_jsonl_path):
 
 
 def main():
+    """Execute the full initial ingestion pipeline.
+
+    This function scrapes fresh data, cleans it, saves canonical JSON, and runs
+    the LLM normalization stage to produce JSONL output.
+
+    :returns: ``None``.
+    :rtype: None
+    """
 
     # Collect raw data in JSON format from TheGradCafe
     raw_data = scrape_data()
@@ -64,6 +82,18 @@ def main():
 
 
 def _append_json_records(records, path):
+    """Append new records to an existing JSON array file.
+
+    If the destination file exists but is not a JSON list, it is treated as an
+    empty list before appending.
+
+    :param records: Records to append.
+    :type records: list[dict]
+    :param path: Target JSON file path.
+    :type path: str | pathlib.Path
+    :returns: ``None``.
+    :rtype: None
+    """
     path_obj = Path(path)
     if path_obj.exists():
         with open(path_obj, 'r') as f:
@@ -78,6 +108,15 @@ def _append_json_records(records, path):
 
 
 def _append_jsonl_records(source_jsonl_path, target_jsonl_path):
+    """Append non-empty JSONL lines from one file to another.
+
+    :param source_jsonl_path: Source JSONL file.
+    :type source_jsonl_path: str | pathlib.Path
+    :param target_jsonl_path: Destination JSONL file.
+    :type target_jsonl_path: str | pathlib.Path
+    :returns: ``None``.
+    :rtype: None
+    """
     with open(source_jsonl_path, 'r') as source_file, open(
         target_jsonl_path, 'a'
     ) as target_file:
@@ -87,6 +126,15 @@ def _append_jsonl_records(source_jsonl_path, target_jsonl_path):
 
 
 def update_new_records():
+    """Scrape and ingest only records that are newer than current database data.
+
+    Existing URLs and maximum result page are used to reduce duplicate work.
+    New records are cleaned, normalized with the LLM pipeline, appended to
+    cumulative JSON/JSONL datasets, and inserted into PostgreSQL.
+
+    :returns: Status dictionary describing whether records were added.
+    :rtype: dict[str, str | int]
+    """
     existing_urls = get_existing_urls()
     max_result_page = get_max_result_page()
     min_result_num = max_result_page + 1 if max_result_page is not None else None

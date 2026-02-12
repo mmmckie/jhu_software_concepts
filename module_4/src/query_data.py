@@ -1,3 +1,5 @@
+"""Analytical query layer for admissions reporting metrics."""
+
 import os
 import psycopg
 
@@ -5,6 +7,15 @@ import psycopg
 conn_info = os.getenv('DATABASE_URL', 'dbname=grad_data')
 
 def run_analysis():
+    """Compute all dashboard metrics from the admissions table.
+
+    The function executes a sequence of SQL queries and aggregates answers into
+    a dictionary consumed by the Flask analysis page and API.
+
+    :returns: Analysis results keyed by metric name.
+    :rtype: dict[str, object]
+    :raises RuntimeError: If any individual query fails through ``execute_query``.
+    """
     results = {}
     # TOTAL NUMBER OF RECORDS
     query = """
@@ -272,6 +283,14 @@ def run_analysis():
 
 
 def execute_query(query):
+    """Execute a SQL query and return all result rows.
+
+    :param query: SQL query text to execute.
+    :type query: str
+    :returns: List of row tuples fetched from PostgreSQL.
+    :rtype: list[tuple]
+    :raises RuntimeError: Wrapped database exception with contextual message.
+    """
     try:
         connection = psycopg.connect(conn_info)
         with connection.cursor() as cur:

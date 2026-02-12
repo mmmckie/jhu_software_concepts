@@ -1,10 +1,18 @@
+"""Data cleaning utilities for scraped GradCafe records."""
+
 import re
 
 import json
 
 
 def _remove_whitespace(str_):
-    '''Remove any instances of \n or \t characters.'''
+    """Remove newline and tab characters from a string.
+
+    :param str_: Raw string value to normalize.
+    :type str_: str
+    :returns: Input string with ``\\n`` and ``\\t`` removed.
+    :rtype: str
+    """
 
     pattern = '[\n\t]'
     output = re.sub(pattern, '', str_)
@@ -12,15 +20,17 @@ def _remove_whitespace(str_):
 
 
 def clean_data(raw_data: list):
-    '''
-    Converts data into a structured format.
-    
-    Arguments:
-    raw_data: list of dicts containing raw entries
+    """Normalize raw scraped payloads into clean application records.
 
-    Returns:
-    cleaned_data: list of dicts containing cleaned entries
-    '''
+    The function standardizes the term field, removes extra whitespace from
+    every value, trims application status date strings to date-only format,
+    and converts known sentinel values (for optional fields) to ``None``.
+
+    :param raw_data: Raw list of application payload dictionaries.
+    :type raw_data: list[dict]
+    :returns: Cleaned payload dictionaries in original order.
+    :rtype: list[dict]
+    """
 
     cleaned_data = []
     for payload in raw_data:
@@ -65,14 +75,26 @@ def clean_data(raw_data: list):
 
 
 def save_data(cleaned_payloads, path='applicant_data.json'):
-    'Saves cleaned data into applicant_data.json.'
+    """Write cleaned payloads to disk as JSON.
+
+    :param cleaned_payloads: Cleaned records to persist.
+    :type cleaned_payloads: list[dict]
+    :param path: Output JSON path.
+    :type path: str
+    :returns: ``None``.
+    :rtype: None
+    """
 
     with open(path, 'w') as f:
         json.dump(cleaned_payloads, f)
 
 
 def load_data():
-    'Loads cleaned data from applicant_data.json.'
+    """Load cleaned payloads from ``applicant_data.json``.
+
+    :returns: Parsed JSON payload list.
+    :rtype: list[dict]
+    """
     with open('applicant_data.json', 'r') as f:
         clean_data = json.load(f)
     return clean_data
