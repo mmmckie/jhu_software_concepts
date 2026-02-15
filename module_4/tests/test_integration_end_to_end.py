@@ -1,4 +1,5 @@
 import pytest
+from tests.test_doubles import FakeConn, FakeCursor
 
 # End-to-end integration uses deterministic fakes to verify workflow coordination.
 pytestmark = pytest.mark.integration
@@ -173,3 +174,60 @@ def test_multiple_pulls_with_overlapping_data_follow_uniqueness_policy(stubbed_c
     assert second.get_json()["ok"] is True
     assert fake_db.count() == 4
     assert second.get_json()["records"] == 1
+
+
+def test_pull_data_route_executes_postgres_loader_path(stubbed_client, monkeypatch, tmp_path):
+    """Verify `/pull-data` drives the loader path that performs PostgreSQL inserts."""
+    import json
+    import board.pages as pages
+    import load_data
+
+    record = {
+        "university": "MIT",
+        "program": "Computer Science",
+        "comments": "test row",
+        "date added": "January 1, 2026",
+        "url": "https://www.thegradcafe.com/result/999001",
+        "application status": "Accepted",
+        "term": "Fall 2026",
+        "US/International": "International",
+        "GPA": "3.9",
+        "GRE": "165",
+        "GRE V": "160",
+        "GRE AW": "4.5",
+        "degree": "PhD",
+        "llm-generated-program": "Computer Science",
+        "llm-generated-university": "MIT",
+    }
+    # Setup: create one valid JSONL record that should pass loader validation and insert.
+    jsonl_path = tmp_path / "route_loader_input.jsonl"
+    jsonl_path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    fake_cursor = FakeCursor()
+    fake_conn = FakeConn(fake_cursor)
+
+    # Setup: replace DB provisioning/connect calls so we can assert SQL/commit behavior in-memory.
+    monkeypatch.setattr(load_data, "create_db_if_not_exists", lambda: None)
+    monkeypatch.setattr(load_data.psycopg, "connect", lambda *args, **kwargs: fake_conn)
+
+    def fake_update_new_records():
+        # Setup: route handler calls this service; keep real loader logic under controlled DB fakes.
+        load_data.stream_jsonl_to_postgres(str(jsonl_path))
+        return {"status": "updated", "records": 1}
+
+    monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
+    monkeypatch.setattr(pages, "update_new_records", fake_update_new_records)
+    # Setup: analysis result is irrelevant to this test; provide a minimal stub payload.
+    monkeypatch.setattr(pages, "run_analysis", lambda: {})
+
+    response = stubbed_client.post("/pull-data")
+
+    # Assertions: API contract reports success and inserted-record count from service response.
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["ok"] is True
+    assert body["records"] == 1
+    # Assertions: loader executed write-path behavior (transaction commit + schema/insert SQL).
+    assert fake_conn.committed is True
+    assert any("CREATE TABLE IF NOT EXISTS admissions" in q for q, _ in fake_cursor.executed)
+    assert any("INSERT INTO admissions" in q for q, _ in fake_cursor.executed)

@@ -6,7 +6,10 @@ from flask import Flask
 pytestmark = pytest.mark.web
 
 
-@pytest.mark.parametrize("required_route", ["/", "/analysis", "/pull", "/update"])
+@pytest.mark.parametrize(
+    "required_route",
+    ["/", "/analysis", "/pull", "/update", "/pull-data", "/update-analysis"],
+)
 def test_app_factory_creates_testable_app_with_required_routes(stubbed_app, required_route):
     """Verify the Flask app factory exposes each required core route."""
     # Setup: use shared stubbed app so route-map checks are deterministic.

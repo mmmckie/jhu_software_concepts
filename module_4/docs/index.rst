@@ -10,5 +10,6 @@ This site documents the code and architecture for ``module_4``.
    setup
    overview
    architecture
+   operational_notes
    modules
    testing

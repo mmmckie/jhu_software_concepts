@@ -6,6 +6,7 @@ import types
 from pathlib import Path
 
 import pytest
+from tests.test_doubles import FakeConn, FakeCursor
 
 # Uses lightweight DB fakes to verify loader/query behavior across success and failure paths.
 pytestmark = [pytest.mark.db, pytest.mark.analysis]
@@ -14,50 +15,6 @@ MODULE_4_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = MODULE_4_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
-
-
-class FakeCursor:
-    def __init__(self, fetchone_values=None, fetchall_values=None):
-        self.fetchone_values = list(fetchone_values or [])
-        self.fetchall_values = list(fetchall_values or [])
-        self.executed = []
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-    def execute(self, query, params=None):
-        self.executed.append((query, params))
-
-    def fetchone(self):
-        if self.fetchone_values:
-            return self.fetchone_values.pop(0)
-        return None
-
-    def fetchall(self):
-        if self.fetchall_values:
-            return self.fetchall_values.pop(0)
-        return []
-
-
-class FakeConn:
-    def __init__(self, cursor):
-        self._cursor = cursor
-        self.committed = False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-    def cursor(self):
-        return self._cursor
-
-    def commit(self):
-        self.committed = True
 
 
 def test_load_data_helpers_and_stream_jsonl(monkeypatch, tmp_path, capsys):
