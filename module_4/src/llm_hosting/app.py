@@ -16,6 +16,7 @@ from llama_cpp import Llama  # CPU-only by default if N_GPU_LAYERS=0
 
 app = Flask(__name__)
 
+# Configuration intentionally comes from env vars to support local and CI execution.
 # ---------------- Model config ----------------
 MODEL_REPO = os.getenv(
     "MODEL_REPO",
@@ -190,6 +191,7 @@ def _load_llm() -> Llama:
         force_filename=MODEL_FILE,
     )
 
+    # Load once and reuse to avoid repeated model init costs per request/row.
     _LLM = Llama(
         model_path=model_path,
         n_ctx=N_CTX,
@@ -335,6 +337,7 @@ def _call_llm(program_text: str, school_text: str) -> Dict[str, str]:
 
     text = (out["choices"][0]["message"]["content"] or "").strip()
     try:
+        # Pull the first JSON object even if the model adds extra wrapper text.
         match = JSON_OBJ_RE.search(text)
         obj = json.loads(match.group(0) if match else text)
         std_prog = str(obj.get("standardized_program", "")).strip()
@@ -424,6 +427,7 @@ def _cli_process_file(
         # in_path = re.sub(r'\..*', '', in_path)
         out_path = out_path or ('llm_extend_applicant_data.jsonl')
         mode = "a" if append else "w"
+        # File sink path is resolved once; each processed row is streamed immediately.
         sink = open(out_path, mode, encoding="utf-8")
 
     assert sink is not None  # for type-checkers

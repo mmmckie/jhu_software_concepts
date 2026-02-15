@@ -1,5 +1,6 @@
 """Data cleaning utilities for scraped GradCafe records."""
 
+# Approach: normalize each raw payload in place, then return a clean list ready for storage.
 import re
 
 import json
@@ -42,6 +43,7 @@ def clean_data(raw_data: list):
         # Only retain matches that have 'fall' or 'spring' in them
         # Will get only 1 result representing term start in the list
         filtered_matches = [m for m in matches if 'fall' in m.lower() or 'spring' in m.lower()]
+        # The scraper emits term noise; first seasonal token is treated as canonical term.
         term = filtered_matches[0]
 
         # Create new payload without newline/tab sequences and set start term
@@ -86,6 +88,7 @@ def save_data(cleaned_payloads, path='applicant_data.json'):
     """
 
     with open(path, 'w') as f:
+        # Keep default serializer behavior to preserve compatibility with existing tests.
         json.dump(cleaned_payloads, f)
 
 

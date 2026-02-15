@@ -1,3 +1,5 @@
+This module implements a data pipeline and web app for GradCafe admissions analysis. It scrapes raw records, cleans and normalizes fields (including LLM-based standardization), loads data into PostgreSQL, and serves summary metrics through a Flask dashboard and API endpoints.
+
 Steps to run analysis webpage on localhost:
 
 (1) Install PostgreSQL and ensure the permissions for localhost are set to 'trust'

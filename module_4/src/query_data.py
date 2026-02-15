@@ -1,5 +1,6 @@
 """Analytical query layer for admissions reporting metrics."""
 
+# Approach: run focused SQL queries and merge scalar results into one dashboard payload.
 import os
 import psycopg
 
@@ -268,6 +269,7 @@ def run_analysis():
     masters_acceptance = execute_query(query_masters)
     phd_acceptance = execute_query(query_phd)
 
+    # Collapse grouped rows into dicts so missing groups naturally map to `None`.
     masters_map = {row[0]: row[-1] for row in masters_acceptance}
     phd_map = {row[0]: row[-1] for row in phd_acceptance}
 
@@ -300,7 +302,9 @@ def execute_query(query):
     except Exception as e:
         raise RuntimeError(f'Database query failed: {e}') from e
 
+
 if __name__ == '__main__':
+    # Collect and print all analysis results
     results = run_analysis()
     print(f'There are {results['total_records']} entries')
     print()

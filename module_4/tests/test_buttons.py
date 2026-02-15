@@ -1,72 +1,15 @@
-import sys
-import types
-from pathlib import Path
-
 import pytest
 
-# Ensure `board` is importable regardless of where pytest is launched.
-MODULE_4_ROOT = Path(__file__).resolve().parents[1]
-if str(MODULE_4_ROOT) not in sys.path:
-    sys.path.insert(0, str(MODULE_4_ROOT))
-
+# Exercise POST button actions and verify route-level side effects and status codes.
 pytestmark = pytest.mark.buttons
 
 
-def _fake_results():
-    return {
-        "total_records": 1,
-        "fall_2026_applicants": 1,
-        "international_percentage": 50.0,
-        "american_fall_2026_gpa": 3.8,
-        "fall_2025_acceptance_rate": 25.0,
-        "fall_2026_acceptance_gpa": 3.9,
-        "jhu_cs_masters": 1,
-        "ivy_2026_compsci_phds": 1,
-        "ivy_2026_compsci_phds_llm_fields": 1,
-        "ivy_2026_compsci_phds_raw_fields": 1,
-        "fall_2025_applicants": 1,
-        "spring_2025_applicants": 1,
-        "masters_acceptance": {"with_gpa": 10.0, "no_gpa": 5.0},
-        "phd_acceptance": {"with_gpa": 20.0, "no_gpa": 10.0},
-        "average_metrics": {
-            "gpa": 3.7,
-            "gre": 165.0,
-            "gre_v": 160.0,
-            "gre_aw": 4.5,
-        },
-    }
-
-
-@pytest.fixture
-def app():
-    query_data_stub = types.ModuleType("query_data")
-    query_data_stub.run_analysis = _fake_results
-    main_stub = types.ModuleType("main")
-    main_stub.update_new_records = lambda: {"status": "no_new", "records": 0}
-
-    sys.modules["query_data"] = query_data_stub
-    sys.modules["main"] = main_stub
-
-    from board import create_app
-
-    app = create_app()
-    app.config.update(TESTING=True)
-    yield app
-
-    sys.modules.pop("query_data", None)
-    sys.modules.pop("main", None)
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
-
-
-def test_post_pull_data_returns_200_and_triggers_loader(client, monkeypatch):
+def test_post_pull_data_returns_200_and_triggers_loader(stubbed_client, monkeypatch, fake_results_payload):
     """Verify API pull endpoint runs loader+analysis and returns success JSON."""
     import board.pages as pages
 
     calls = {"loader": 0, "analysis": 0}
+    # Counters verify side effects directly rather than asserting on internal Flask state.
 
     def fake_loader():
         calls["loader"] += 1
@@ -74,14 +17,16 @@ def test_post_pull_data_returns_200_and_triggers_loader(client, monkeypatch):
 
     def fake_analysis():
         calls["analysis"] += 1
-        return _fake_results()
+        return fake_results_payload
 
+    # Setup: patch route dependencies so pull path uses local counters and fake payloads.
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
     monkeypatch.setattr(pages, "update_new_records", fake_loader)
     monkeypatch.setattr(pages, "run_analysis", fake_analysis)
 
-    response = client.post("/pull-data")
+    response = stubbed_client.post("/pull-data")
 
+    # Assertions: API contract is success and both loader/analysis callbacks ran once.
     assert response.status_code == 200
     assert response.get_json()["ok"] is True
     assert response.get_json()["busy"] is False
@@ -89,7 +34,7 @@ def test_post_pull_data_returns_200_and_triggers_loader(client, monkeypatch):
     assert calls["analysis"] == 1
 
 
-def test_post_update_analysis_returns_200_when_not_busy(client, monkeypatch):
+def test_post_update_analysis_returns_200_when_not_busy(stubbed_client, monkeypatch, fake_results_payload):
     """Verify API update endpoint executes analysis when pull is not busy."""
     import board.pages as pages
 
@@ -97,20 +42,22 @@ def test_post_update_analysis_returns_200_when_not_busy(client, monkeypatch):
 
     def fake_analysis():
         calls["analysis"] += 1
-        return _fake_results()
+        return fake_results_payload
 
+    # Setup: force non-busy state so update handler executes analysis callback.
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", False)
     monkeypatch.setattr(pages, "run_analysis", fake_analysis)
 
-    response = client.post("/update-analysis")
+    response = stubbed_client.post("/update-analysis")
 
+    # Assertions: update returns success JSON and analysis is invoked once.
     assert response.status_code == 200
     assert response.get_json()["ok"] is True
     assert response.get_json()["busy"] is False
     assert calls["analysis"] == 1
 
 
-def test_busy_gating_update_returns_409_and_does_not_update(client, monkeypatch):
+def test_busy_gating_update_returns_409_and_does_not_update(stubbed_client, monkeypatch, fake_results_payload):
     """Verify busy-state blocks API update and does not invoke analysis."""
     import board.pages as pages
 
@@ -118,20 +65,22 @@ def test_busy_gating_update_returns_409_and_does_not_update(client, monkeypatch)
 
     def fake_analysis():
         calls["analysis"] += 1
-        return _fake_results()
+        return fake_results_payload
 
+    # Setup: force busy state to exercise early-return guard.
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", True)
     monkeypatch.setattr(pages, "run_analysis", fake_analysis)
 
-    response = client.post("/update-analysis")
+    response = stubbed_client.post("/update-analysis")
 
+    # Assertions: busy response is 409 and analysis callback is never called.
     assert response.status_code == 409
     assert response.get_json()["busy"] is True
     assert response.get_json()["ok"] is False
     assert calls["analysis"] == 0
 
 
-def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(client, monkeypatch):
+def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(stubbed_client, monkeypatch, fake_results_payload):
     """Verify busy-state blocks API pull and does not invoke loader/analysis."""
     import board.pages as pages
 
@@ -143,14 +92,16 @@ def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(client, monkey
 
     def fake_analysis():
         calls["analysis"] += 1
-        return _fake_results()
+        return fake_results_payload
 
+    # Setup: force busy state so pull handler must reject immediately.
     monkeypatch.setattr(pages, "_PULL_IN_PROGRESS", True)
     monkeypatch.setattr(pages, "update_new_records", fake_loader)
     monkeypatch.setattr(pages, "run_analysis", fake_analysis)
 
-    response = client.post("/pull-data")
+    response = stubbed_client.post("/pull-data")
 
+    # Assertions: conflict response is returned and neither callback executes.
     assert response.status_code == 409
     assert response.get_json()["busy"] is True
     assert response.get_json()["ok"] is False
@@ -158,7 +109,7 @@ def test_busy_gating_pull_returns_409_and_does_not_trigger_loader(client, monkey
     assert calls["analysis"] == 0
 
 
-def test_dependency_injection_allows_fake_loader_and_query_without_monkeypatch():
+def test_dependency_injection_allows_fake_loader_and_query_without_monkeypatch(fake_results_payload):
     """Verify app-factory dependency injection drives pull endpoint behavior."""
     from board import create_app
 
@@ -170,17 +121,19 @@ def test_dependency_injection_allows_fake_loader_and_query_without_monkeypatch()
 
     def fake_analysis():
         calls["analysis"] += 1
-        return _fake_results()
+        return fake_results_payload
 
     app = create_app(
         test_config={"TESTING": True},
         run_analysis_fn=fake_analysis,
         update_new_records_fn=fake_loader,
     )
+    # Setup: inject dependencies through `create_app` arguments, not module patching.
     client = app.test_client()
 
     response = client.post("/pull-data")
 
+    # Assertions: endpoint reflects injected loader result and both callbacks execute.
     assert response.status_code == 200
     body = response.get_json()
     assert body["ok"] is True

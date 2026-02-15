@@ -1,5 +1,6 @@
 """Orchestration workflow for scrape, clean, normalize, and load operations."""
 
+# Supports both full initial ingestion (`main`) and incremental refresh (`update_new_records`).
 import json
 from pathlib import Path
 
@@ -98,6 +99,7 @@ def _append_json_records(records, path):
     if path_obj.exists():
         with open(path_obj, 'r') as f:
             existing = json.load(f)
+        # Recover gracefully if an unexpected JSON object/string is present.
         if not isinstance(existing, list):
             existing = []
     else:
@@ -137,10 +139,12 @@ def update_new_records():
     """
     existing_urls = get_existing_urls()
     max_result_page = get_max_result_page()
+    # Start scraping from the first unseen result number when DB state is known.
     min_result_num = max_result_page + 1 if max_result_page is not None else None
 
     raw_data = scrape_data(min_result_num=min_result_num, existing_urls=existing_urls)
     if not raw_data:
+        # Keep response minimal for UI/API callers that only need status.
         return {'status': 'no_new'}
 
     cleaned_data = clean_data(raw_data)
@@ -150,6 +154,7 @@ def update_new_records():
     full_json_path = src_dir / 'applicant_data.json'
     full_jsonl_path = src_dir / 'llm_extend_applicant_data.jsonl'
 
+    # Persist both delta artifacts and cumulative datasets for reproducibility.
     save_data(cleaned_data, str(new_json_path))
     _run_LLM_pipeline(str(new_json_path), str(new_jsonl_path))
     _append_json_records(cleaned_data, str(full_json_path))

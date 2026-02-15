@@ -4,6 +4,7 @@ from flask import Flask
 
 from board import pages
 
+# Allow dependency injection in tests while keeping production defaults simple.
 def create_app(
     *,
     test_config=None,
@@ -23,6 +24,7 @@ def create_app(
     """
     app = Flask(__name__)
     if test_config:
+        # Test config is applied first so route handlers see overridden values.
         app.config.update(test_config)
     if run_analysis_fn is not None:
         app.config["RUN_ANALYSIS_FN"] = run_analysis_fn

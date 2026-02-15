@@ -18,6 +18,7 @@ _PULL_IN_PROGRESS = False
 _PULL_MESSAGE_PENDING = False
 _PULL_LOCK = threading.Lock()
 _PULL_ERROR_PENDING = None
+# Shared state coordinates async pull requests across browser/API routes.
 
 
 def _is_api_route():
@@ -90,6 +91,7 @@ def analysis():
     info_message = None
     error_message = None
     if _PULL_MESSAGE_PENDING:
+        # Message is one-shot to avoid repeating stale notices after refresh.
         info_message = 'Pull Data is currently running. Update Analysis will work once it finishes.'
         _PULL_MESSAGE_PENDING = False
     if _PULL_ERROR_PENDING:
@@ -168,6 +170,7 @@ def analysis_pull():
             """
             global _PULL_IN_PROGRESS, _PULL_ERROR_PENDING
             try:
+                # Background thread needs an explicit app context for Flask globals.
                 with app.app_context():
                     fn()
             except Exception as exc:
@@ -181,6 +184,7 @@ def analysis_pull():
             _PULL_IN_PROGRESS = True
             _PULL_MESSAGE_PENDING = True
             _PULL_ERROR_PENDING = None
+        # Fire-and-forget worker keeps browser flow responsive.
         threading.Thread(target=_pull_worker, args=(app_obj, update_fn)).start()
         return redirect('/')
 
@@ -222,6 +226,7 @@ def analysis_update():
     if pull_in_progress:
         if _is_api_route():
             return jsonify({"busy": True, "ok": False}), 409
+        # Browser path redirects so banner message can be rendered on GET /analysis.
         _PULL_MESSAGE_PENDING = True
         return redirect('/')
     try:

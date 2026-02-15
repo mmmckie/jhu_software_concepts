@@ -1,5 +1,6 @@
 """GradCafe scraping helpers for survey and result-page extraction."""
 
+# Approach: collect table rows first, then hydrate each row with detailed result-page fields.
 from urllib.request import urlopen
 from urllib import error, request
 from bs4 import BeautifulSoup
@@ -174,6 +175,7 @@ def _fetch_result_page(url, payload):
                     continue
 
                 # Data fields are always in the same order
+                # so index position is used as the schema contract.
                 if i == 0:
                     payload['university'] = field_contents
                 elif i == 1:
@@ -193,6 +195,7 @@ def _fetch_result_page(url, payload):
 
             elif i == 7: # The GRE scores have a slightly different format
                 field_contents = [e for e in entry.find_all('li')]
+                # Quant/Verbal/AW values are nested under `<li><span>..</span><b>..</b>`.
                 spans = [e.find('span').next_sibling.next_sibling for e in field_contents]
                 field_contents = [s.get_text() for s in spans]
                 payload['GRE'] = field_contents[0]
@@ -245,6 +248,7 @@ def _concurrent_scraper(worker_func, tasks, is_mapping=False, all_payloads=None)
         # Collect results, print out any errors encountered and move on
         for future in future_to_task:
             try:
+                # Iterate futures directly; ordering is not important for downstream consumers.
                 data = future.result()
                 if data:
                     # Use extend for lists and append for dicts
@@ -339,6 +343,7 @@ def scrape_data(min_result_num=None, existing_urls=None):
                 continue
             url = BASE_URL + row[0]
             result_num = _extract_result_num(url)
+            # URL dedupe check handles reruns where source pages still contain old records.
             if url in existing_urls:
                 continue
             if min_result_num is not None and result_num is not None:

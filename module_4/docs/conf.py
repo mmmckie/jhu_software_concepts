@@ -2,6 +2,7 @@ import os
 import sys
 from datetime import datetime
 
+# Keep Sphinx autodoc imports stable by making project `src/` importable.
 PROJECT_ROOT = os.path.abspath('..')
 SRC_ROOT = os.path.join(PROJECT_ROOT, 'src')
 if SRC_ROOT not in sys.path:
@@ -22,6 +23,7 @@ extensions = [
 autosummary_generate = True
 autodoc_member_order = 'bysource'
 autodoc_typehints = 'description'
+# Mock heavy/runtime-only deps so docs can build without full app environment.
 autodoc_mock_imports = [
     "psycopg",
     "bs4",

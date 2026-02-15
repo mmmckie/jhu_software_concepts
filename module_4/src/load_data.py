@@ -1,5 +1,6 @@
 """PostgreSQL load helpers for admissions JSONL data."""
 
+# Keep connection settings centralized so create/query/load paths share the same DB target.
 import os
 import psycopg
 import json
@@ -48,6 +49,7 @@ def get_max_result_page():
                 result = cur.fetchone()
                 return result[0] if result and result[0] is not None else None
     except Exception:
+        # Absence of table/DB is treated as "no known max page" for first run.
         return None
 
 
@@ -98,9 +100,8 @@ def stream_jsonl_to_postgres(filepath):
 
     with psycopg.connect(conn_info) as conn:
         with conn.cursor() as cur:
-            # 1. Create table with proper numeric types
-            # NUMERIC(3, 2) is perfect for GPA (e.g., 4.00)
             
+            # 1. Create table with proper data types
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS admissions (
                     p_id SERIAL PRIMARY KEY,
@@ -126,16 +127,16 @@ def stream_jsonl_to_postgres(filepath):
 
             with open(filepath, 'r', encoding='utf-8') as f:
                 for line in f:
-                    # print(type(line))
-                    # print(line.values())
-                    # print(line)
+                    
+                    # Ensure record is not empty and has no missing fields
                     if not line.strip():
                         continue
-                    # try:
                     record = json.loads(line)
+                    # Reject partial rows to keep downstream analytics assumptions valid.
                     if '' in record.values():
                         continue
-                    # 2. Map JSON keys to the Database columns
+
+                    # Map JSON keys to the Database columns
                     cur.execute("""
                         INSERT INTO admissions (
                             university, program, comments, date_added, url,
@@ -146,7 +147,7 @@ def stream_jsonl_to_postgres(filepath):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (url) DO NOTHING
                     """, (
-                        record.get('university'), # + " - " + record.get('program'), # Combined for 'program'
+                        record.get('university'),
                         record.get('program'),
                         record.get('comments'),
                         format_date(record.get('date added')), # Convert string to Date object
@@ -155,17 +156,15 @@ def stream_jsonl_to_postgres(filepath):
                         record.get('term'),
                         record.get('US/International'),
                         record.get('GPA'),
-                        record.get('GRE'),   # Using your specified 'gre' field
+                        record.get('GRE'),
                         record.get('GRE V'),
                         record.get('GRE AW'),
                         record.get('degree'),
-                        record.get('llm-generated-program'), # From your LLM step
-                        record.get('llm-generated-university'), # From your LLM step
+                        record.get('llm-generated-program'), # From LLM step
+                        record.get('llm-generated-university'), # From LLM step
+                        # Store numeric suffix once so incremental scraping can resume quickly.
                         record.get('url').split('/')[-1]
                     ))
-                    # except Exception as e:
-                    #     print(f'Exception {e} occured. Data in question:')
-                    #     print(line, end = '\n')
 
             
             conn.commit()
