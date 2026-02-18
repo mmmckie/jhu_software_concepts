@@ -1,6 +1,8 @@
 """Analytical query layer for admissions reporting metrics."""
 
 # Approach: run focused SQL queries and merge scalar results into one dashboard payload.
+from types import SimpleNamespace
+from typing import Any, cast
 import psycopg
 from psycopg import sql
 from db_config import get_db_conn_info
@@ -12,10 +14,8 @@ MAX_QUERY_LIMIT = 100
 
 def _render_sql(stmt):
     """Render a psycopg SQL composable without requiring a live connection object."""
-    class _Ctx:  # Minimal context object for psycopg.sql rendering.
-        connection = None
-
-    return stmt.as_string(_Ctx())
+    # psycopg only needs an object exposing ``connection`` for SQL rendering.
+    return stmt.as_string(SimpleNamespace(connection=None))
 
 
 def _clamp_limit(limit, minimum=1, maximum=MAX_QUERY_LIMIT):
@@ -312,8 +312,8 @@ def execute_query(query, params=None, limit=MAX_QUERY_LIMIT):
     :raises RuntimeError: Wrapped database exception with contextual message.
     """
     try:
-        connection = psycopg.connect(conn_info)
-        with connection.cursor() as cur:  # pylint: disable=no-member
+        connection = cast(Any, psycopg.connect(conn_info))
+        with getattr(connection, 'cursor')() as cur:
             stmt = _compose_limited_query(query, limit)
             exec_params = params if params else None
             cur.execute(_render_sql(stmt), exec_params)

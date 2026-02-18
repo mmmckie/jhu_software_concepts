@@ -1,5 +1,27 @@
 This module implements a data pipeline and web app for GradCafe admissions analysis. It scrapes raw records, cleans and normalizes fields (including LLM-based standardization), loads data into PostgreSQL, and serves summary metrics through a Flask dashboard and API endpoints.
 
+Fresh Install
+
+Method 1: pip
+
+1. Install Python 3.12.3 and PostgreSQL.
+2. `cd jhu_software_concepts/module_5`
+3. `python -m venv .venv`
+4. `source .venv/bin/activate`
+5. `pip install -r requirements.txt`
+6. `pip install -e .`
+7. Copy `../.env.example` to `../.env` and set real DB values.
+
+Method 2: uv
+
+1. Install Python 3.12.3, PostgreSQL, and `uv`.
+2. `cd jhu_software_concepts/module_5`
+3. `uv venv`
+4. `source .venv/bin/activate`
+5. `uv pip sync requirements.txt`
+6. `uv pip install -e .`
+7. Copy `../.env.example` to `../.env` and set real DB values.
+
 Steps to run analysis webpage on localhost:
 
 (1) Install PostgreSQL
@@ -7,10 +29,11 @@ Steps to run analysis webpage on localhost:
 (3) $git clone git@github.com:mmmckie/jhu_software_concepts.git
 (4) Ensure current working directory is jhu_software_concepts/module_5
 (5) $pip install -r requirements.txt
-(6) Copy `../.env.example` to `../.env` and set real DB values
-(7) (Optional but recommended) create least-privilege DB role:
+(6) $pip install -e .
+(7) Copy `../.env.example` to `../.env` and set real DB values
+(8) (Optional but recommended) create least-privilege DB role:
     `$psql -U postgres -f docs/least_privilege.sql`
-(8) $python src/run.py
+(9) $python src/run.py
 
 Environment variables used by the app:
 

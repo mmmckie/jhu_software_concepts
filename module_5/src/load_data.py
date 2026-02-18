@@ -3,6 +3,7 @@
 # Keep connection settings centralized so create/query/load paths share the same DB target.
 import os
 import json
+from types import SimpleNamespace
 from datetime import datetime
 import psycopg
 from psycopg import sql
@@ -15,10 +16,8 @@ conn_info = get_db_conn_info()
 
 def _render_sql(stmt):
     """Render a psycopg SQL composable without requiring a live connection object."""
-    class _Ctx:  # Minimal context object for psycopg.sql rendering.
-        connection = None
-
-    return stmt.as_string(_Ctx())
+    # psycopg only needs an object exposing ``connection`` for SQL rendering.
+    return stmt.as_string(SimpleNamespace(connection=None))
 
 def create_db_if_not_exists():
     """Create the ``grad_data`` database when unmanaged local defaults are used.
