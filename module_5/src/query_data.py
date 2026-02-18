@@ -1,12 +1,12 @@
 """Analytical query layer for admissions reporting metrics."""
 
 # Approach: run focused SQL queries and merge scalar results into one dashboard payload.
-import os
 import psycopg
 from psycopg import sql
+from db_config import get_db_conn_info
 
 # Use the same connection string as your loader
-conn_info = os.getenv('DATABASE_URL', 'dbname=grad_data')
+conn_info = get_db_conn_info()
 MAX_QUERY_LIMIT = 100
 
 

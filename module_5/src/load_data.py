@@ -6,11 +6,11 @@ import json
 from datetime import datetime
 import psycopg
 from psycopg import sql
+from db_config import get_admin_conn_info, get_db_conn_info, get_db_name
 
-base_conn_info = os.getenv('DATABASE_ADMIN_URL', 'dbname=postgres')
-DBNAME = 'grad_data'
-DEFAULT_CONN_INFO = f'dbname={DBNAME}'
-conn_info = os.getenv('DATABASE_URL', DEFAULT_CONN_INFO)
+base_conn_info = get_admin_conn_info()
+DBNAME = get_db_name()
+conn_info = get_db_conn_info()
 
 
 def _render_sql(stmt):

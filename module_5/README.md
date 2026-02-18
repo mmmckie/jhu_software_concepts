@@ -2,12 +2,36 @@ This module implements a data pipeline and web app for GradCafe admissions analy
 
 Steps to run analysis webpage on localhost:
 
-(1) Install PostgreSQL and ensure the permissions for localhost are set to 'trust'
+(1) Install PostgreSQL
 (2) Install Python 3.12.3
 (3) $git clone git@github.com:mmmckie/jhu_software_concepts.git
-(4) Ensure current working directory is jhu_software_concepts/module_4
+(4) Ensure current working directory is jhu_software_concepts/module_5
 (5) $pip install -r requirements.txt
-(6) $python src/run.py
+(6) Copy `../.env.example` to `../.env` and set real DB values
+(7) (Optional but recommended) create least-privilege DB role:
+    `$psql -U postgres -f docs/least_privilege.sql`
+(8) $python src/run.py
+
+Environment variables used by the app:
+
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_ADMIN_HOST` (optional)
+- `DB_ADMIN_PORT` (optional)
+- `DB_ADMIN_NAME` (optional)
+- `DB_ADMIN_USER` (optional)
+- `DB_ADMIN_PASSWORD` (optional)
+
+Least-privilege guidance:
+
+- Use a dedicated app role (for example `grad_app`)
+- Do not grant `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `ALTER`, or `DROP`
+- Grant only what the app needs on `public.admissions`:
+  - `SELECT`, `INSERT`, `UPDATE`
+  - sequence usage on `public.admissions_p_id_seq`
 
 Documentation:
 
