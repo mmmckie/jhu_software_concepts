@@ -1,7 +1,7 @@
-Module 4 Documentation
+Module 5 Documentation
 ======================
 
-This site documents the code and architecture for ``module_4``.
+This site documents the code and architecture for ``module_5``.
 
 .. toctree::
    :maxdepth: 2
