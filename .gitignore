@@ -3,3 +3,4 @@ __pycache__
 module_5/venv
 .env
 **/.env
+**/.venv
