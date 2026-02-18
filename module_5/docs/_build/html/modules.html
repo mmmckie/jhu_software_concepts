@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>API Reference &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="scrape" href="api_scrape.html" />
+    <link rel="prev" title="Architecture" href="architecture.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
+<p>This section contains autodoc output for the key module_4 code units.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api_scrape.html">scrape</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape._is_restricted_path"><code class="docutils literal notranslate"><span class="pre">_is_restricted_path()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape._fetch_table_page"><code class="docutils literal notranslate"><span class="pre">_fetch_table_page()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape._extract_result_num"><code class="docutils literal notranslate"><span class="pre">_extract_result_num()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape._fetch_result_page"><code class="docutils literal notranslate"><span class="pre">_fetch_result_page()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape._concurrent_scraper"><code class="docutils literal notranslate"><span class="pre">_concurrent_scraper()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape._get_raw_payloads"><code class="docutils literal notranslate"><span class="pre">_get_raw_payloads()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html#scrape.scrape_data"><code class="docutils literal notranslate"><span class="pre">scrape_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_clean.html">clean</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html#clean._remove_whitespace"><code class="docutils literal notranslate"><span class="pre">_remove_whitespace()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html#clean.clean_data"><code class="docutils literal notranslate"><span class="pre">clean_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html#clean.save_data"><code class="docutils literal notranslate"><span class="pre">save_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html#clean.load_data"><code class="docutils literal notranslate"><span class="pre">load_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_load_data.html">load_data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html#load_data.create_db_if_not_exists"><code class="docutils literal notranslate"><span class="pre">create_db_if_not_exists()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html#load_data.get_max_result_page"><code class="docutils literal notranslate"><span class="pre">get_max_result_page()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html#load_data.get_existing_urls"><code class="docutils literal notranslate"><span class="pre">get_existing_urls()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html#load_data.format_date"><code class="docutils literal notranslate"><span class="pre">format_date()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html#load_data.stream_jsonl_to_postgres"><code class="docutils literal notranslate"><span class="pre">stream_jsonl_to_postgres()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_query_data.html">query_data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_query_data.html#query_data.run_analysis"><code class="docutils literal notranslate"><span class="pre">run_analysis()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_query_data.html#query_data.execute_query"><code class="docutils literal notranslate"><span class="pre">execute_query()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_flask_routes.html">Flask Routes (board.pages)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html#primary-routes">Primary routes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html#module-board.pages">Autodoc</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_main.html">main</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html#main._run_LLM_pipeline"><code class="docutils literal notranslate"><span class="pre">_run_LLM_pipeline()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html#main.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html#main._append_json_records"><code class="docutils literal notranslate"><span class="pre">_append_json_records()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html#main._append_jsonl_records"><code class="docutils literal notranslate"><span class="pre">_append_jsonl_records()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html#main.update_new_records"><code class="docutils literal notranslate"><span class="pre">update_new_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_run.html">run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_board.html">board package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_board.html#module-board">board.__init__</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_board.html#module-board.pages">board.pages</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html">scrape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html">clean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html">load_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_query_data.html">query_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html">Flask Routes (board.pages)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_run.html">run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_board.html">board package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="architecture.html" title="previous chapter">Architecture</a></li>
+      <li>Next: <a href="api_scrape.html" title="next chapter">scrape</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Max M. McKie.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/modules.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

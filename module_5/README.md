@@ -1,0 +1,14 @@
+This module implements a data pipeline and web app for GradCafe admissions analysis. It scrapes raw records, cleans and normalizes fields (including LLM-based standardization), loads data into PostgreSQL, and serves summary metrics through a Flask dashboard and API endpoints.
+
+Steps to run analysis webpage on localhost:
+
+(1) Install PostgreSQL and ensure the permissions for localhost are set to 'trust'
+(2) Install Python 3.12.3
+(3) $git clone git@github.com:mmmckie/jhu_software_concepts.git
+(4) Ensure current working directory is jhu_software_concepts/module_4
+(5) $pip install -r requirements.txt
+(6) $python src/run.py
+
+Documentation:
+
+https://mmmckie-jhu-software-concepts.readthedocs.io/en/latest/

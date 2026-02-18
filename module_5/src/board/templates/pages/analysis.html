@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block head %}
+  {{ super() }}
+  {% if pull_in_progress %}
+    <meta http-equiv="refresh" content="2">
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1>TheGradCafe Analysis</h1>
+
+  <div class="analysis-actions">
+    <div class="analysis-actions-left">
+      <form action="/pull" method="post">
+        <button type="submit" data-testid="pull-data-btn">Pull Data</button>
+      </form>
+      <p class="action-note">
+        Pulls any new GradCafe results, appends them to your local files, and loads them into the database.
+      </p>
+    </div>
+    <div class="analysis-actions-right">
+      <form action="/update" method="post">
+        <button type="submit" data-testid="update-analysis-btn" {% if pull_in_progress %}disabled{% endif %}>Update Analysis</button>
+      </form>
+      <p class="action-note">
+        Refreshes the analysis summary using the most up-to-date data currently available.
+      </p>
+    </div>
+  </div>
+
+  {% if update_status %}
+    {% if update_status.status == "no_new" %}
+      <p>No new records found. Analysis refreshed.</p>
+    {% elif update_status.status == "updated" %}
+      <p>Updated with {{ update_status.records }} new records.</p>
+    {% endif %}
+  {% endif %}
+  {% if info_message %}
+    <p>{{ info_message }}</p>
+  {% elif pull_in_progress %}
+    <p>Pull Data is currently running. Update Analysis will work once it finishes.</p>
+  {% endif %}
+
+  {% if error %}
+    <p><b>Error loading analysis:</b> {{ error }}</p>
+  {% else %}
+    <h2>Overview</h2>
+    <p> <u><b>Total number of records: {{ results.total_records }}</b></u></p>
+    <ul>
+      <li class="question"><b>How many applicants in the database applied for Fall 2026?</b></li>
+      <p class="answer"><b>Answer:</b> Fall 2026 Applicants: {{ results.fall_2026_applicants }}</p>
+
+      <li class="question"><b>What percentage of entries are from international students?</b></li>
+      <p class="answer"><b>Answer:</b> International applicants: {{ "%.2f"|format(results.international_percentage) }}%</p>
+      
+      <li class="question"><b>What is the average GPA of American students in Fall 2026? </b></li>
+      <p class="answer"><b>Answer:</b> Average GPA: {{ results.american_fall_2026_gpa }}</p>
+      
+      <li class="question"><b>What percent of entries for Fall 2025 are Acceptances?</b></li>
+      <p class="answer"><b>Answer:</b> Fall 2025 Acceptance Rate: {{ "%.2f"|format(results.fall_2025_acceptance_rate) }}%</p>
+
+      <li class="question"><b>What is the average GPA of accepted applicants for the Fall 2026 term?</b></li>
+      <p class="answer"><b>Answer:</b> Average GPA: {{ results.fall_2026_acceptance_gpa }}</p>
+      
+      <li class="question"><b>How many applicants applied to JHU for a Master's degree in Computer Science?</b></li>
+      <p class="answer"><b>Answer:</b> JHU CS Master's Applicants: {{ results.jhu_cs_masters }}</p>
+
+      <li class="question"><b>How many entries added in 2026 are acceptances from applicants who applied 
+        to Georgetown University, MIT, Stanford University, or Carnegie Mellon University 
+        for a PhD in Computer Science?</b></li>
+      <p class="answer"><b>Answer:</b> 2026 CS PhD Acceptances from (Georgetown/Stanford/MIT/Carnegie Mellon): {{ results.ivy_2026_compsci_phds }}</p>
+      <p class="answer"><b>Answer:</b> Same information relying on LLM fields only: {{ results.ivy_2026_compsci_phds_llm_fields }}</p>
+      <p class="answer"><b>Answer:</b> Same information relying on raw fields only: {{ results.ivy_2026_compsci_phds_raw_fields }}</p>
+    </ul>
+
+    <h2>Average Metrics</h2>
+    <table class="analysis-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Average</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>GPA</td>
+          <td>{{ results.average_metrics.gpa }}</td>
+        </tr>
+        <tr>
+          <td>GRE (Quant)</td>
+          <td>{{ results.average_metrics.gre }}</td>
+        </tr>
+        <tr>
+          <td>GRE (Verbal)</td>
+          <td>{{ results.average_metrics.gre_v }}</td>
+        </tr>
+        <tr>
+          <td>GRE (AW)</td>
+          <td>{{ results.average_metrics.gre_aw }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Additional Analysis</h2>
+    <ul>
+      <li class="question"><b>How many applicants applied for a Fall 2025 start 
+        term vs. a Spring 2025 start term?</b></li>
+      <p class="answer"><b>Answer:</b> Fall 2025: {{ results.fall_2025_applicants }}</p>
+      <p class="answer"><b>Answer:</b> Spring 2025: {{ results.spring_2025_applicants }}</p>
+
+      <li class="question"><b>What is the average acceptance rate of Master's 
+        programs vs PhD programs for American applicants who do and don't report 
+        their GPA?</b></li>
+        <div>Acceptance Rates (American Applicants)</div>
+    <table class="analysis-table">
+      <thead>
+        <tr>
+          <th>Program</th>
+          <th>With GPA</th>
+          <th>No GPA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Master's</td>
+          <td>{{ "%.2f"|format(results.masters_acceptance.with_gpa) }}%</td>
+          <td>{{ "%.2f"|format(results.masters_acceptance.no_gpa) }}%</td>
+        </tr>
+        <tr>
+          <td>PhD</td>
+          <td>{{ "%.2f"|format(results.phd_acceptance.with_gpa) }}%</td>
+          <td>{{ "%.2f"|format(results.phd_acceptance.no_gpa) }}%</td>
+        </tr>
+      </tbody>
+    </table>
+    </ul>
+
+  {% endif %}
+
+{% endblock %}

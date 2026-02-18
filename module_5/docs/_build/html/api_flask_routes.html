@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Flask Routes (board.pages) &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="main" href="api_main.html" />
+    <link rel="prev" title="query_data" href="api_query_data.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="flask-routes-board-pages">
+<h1>Flask Routes (board.pages)<a class="headerlink" href="#flask-routes-board-pages" title="Link to this heading">¶</a></h1>
+<p>This project does not use a dedicated <code class="docutils literal notranslate"><span class="pre">flask_app.py</span></code> file. Route handlers are
+implemented in <code class="docutils literal notranslate"><span class="pre">src/board/pages.py</span></code> and registered by the app factory in
+<code class="docutils literal notranslate"><span class="pre">src/board/__init__.py</span></code>.</p>
+<section id="primary-routes">
+<h2>Primary routes<a class="headerlink" href="#primary-routes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/</span></code> and <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/analysis</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/pull</span></code> and <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/pull-data</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/update</span></code> and <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/update-analysis</span></code></p></li>
+</ul>
+</section>
+<section id="module-board.pages">
+<span id="autodoc"></span><h2>Autodoc<a class="headerlink" href="#module-board.pages" title="Link to this heading">¶</a></h2>
+<p>Route handlers for the analysis dashboard and pull/update actions.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._is_api_route">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_is_api_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_is_api_route"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._is_api_route" title="Link to this definition">¶</a></dt>
+<dd><p>Check whether the current request targets JSON API endpoints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> for <code class="docutils literal notranslate"><span class="pre">/pull-data</span></code> or <code class="docutils literal notranslate"><span class="pre">/update-analysis</span></code> routes.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._run_analysis_service">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_run_analysis_service</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_run_analysis_service"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._run_analysis_service" title="Link to this definition">¶</a></dt>
+<dd><p>Resolve and execute the configured analysis function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Analysis result payload.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._update_new_records_service">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_update_new_records_service</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_update_new_records_service"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._update_new_records_service" title="Link to this definition">¶</a></dt>
+<dd><p>Resolve and execute the configured pull/update function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Pull/update status payload.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._empty_results">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_empty_results</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_empty_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._empty_results" title="Link to this definition">¶</a></dt>
+<dd><p>Return a zeroed analysis payload for guarded/busy template responses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Default analysis result map with all metrics set to zero.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[str, object]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages.analysis">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">analysis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages.analysis" title="Link to this definition">¶</a></dt>
+<dd><p>Render the analysis dashboard page.</p>
+<p>Pending status/error messages from asynchronous pull operations are consumed
+on this request and included in template context.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Rendered HTML response.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages.analysis_pull">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">analysis_pull</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#analysis_pull"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages.analysis_pull" title="Link to this definition">¶</a></dt>
+<dd><p>Handle pull-data requests for both browser and API clients.</p>
+<p>Browser <code class="docutils literal notranslate"><span class="pre">/pull</span></code> requests are executed asynchronously and redirected back
+to the dashboard. API <code class="docutils literal notranslate"><span class="pre">/pull-data</span></code> requests are handled synchronously and
+return JSON status.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Redirect/HTML response for browser routes or JSON for API routes.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>flask.Response | tuple[flask.Response, int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages.analysis_update">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">analysis_update</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#analysis_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages.analysis_update" title="Link to this definition">¶</a></dt>
+<dd><p>Handle analysis-refresh requests for browser and API clients.</p>
+<p>Update requests are blocked while a pull is in progress. Browser requests
+render template responses; API requests return JSON statuses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Redirect/HTML response for browser routes or JSON for API routes.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>flask.Response | tuple[flask.Response, int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html">scrape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html">clean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html">load_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_query_data.html">query_data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Flask Routes (board.pages)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_run.html">run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_board.html">board package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">API Reference</a><ul>
+      <li>Previous: <a href="api_query_data.html" title="previous chapter">query_data</a></li>
+      <li>Next: <a href="api_main.html" title="next chapter">main</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Max M. McKie.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/api_flask_routes.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

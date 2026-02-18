@@ -1,0 +1,10 @@
+bs4==0.0.2
+Flask==3.1.2
+huggingface_hub==1.4.1
+llama_cpp_python==0.2.90
+psycopg==3.3.2
+pytest==9.0.2
+pytest-cov==7.0.0
+PyYAML==6.0.3
+Sphinx==9.1.0
+urllib3==2.6.3

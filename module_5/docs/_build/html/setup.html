@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Setup &amp; Run Guide &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Overview" href="overview.html" />
+    <link rel="prev" title="Module 4 Documentation" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="setup-run-guide">
+<h1>Setup &amp; Run Guide<a class="headerlink" href="#setup-run-guide" title="Link to this heading">¶</a></h1>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Python 3.12+</p></li>
+<li><p>PostgreSQL running locally or reachable via connection URL</p></li>
+<li><p>Dependencies installed from <code class="docutils literal notranslate"><span class="pre">module_4/requirements.txt</span></code></p></li>
+</ul>
+</section>
+<section id="install">
+<h2>Install<a class="headerlink" href="#install" title="Link to this heading">¶</a></h2>
+<p>From <code class="docutils literal notranslate"><span class="pre">jhu_software_concepts/module_4</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</pre></div>
+</div>
+</section>
+<section id="required-environment-variables">
+<h2>Required environment variables<a class="headerlink" href="#required-environment-variables" title="Link to this heading">¶</a></h2>
+<p>The application can run with local defaults, but these variables are recommended
+for explicit and reproducible configuration:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">DATABASE_URL</span></code>:
+PostgreSQL connection used by <code class="docutils literal notranslate"><span class="pre">src/query_data.py</span></code> and <code class="docutils literal notranslate"><span class="pre">src/load_data.py</span></code>.
+Example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span><span class="s2">&quot;postgresql://postgres:password@localhost:5432/grad_data&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DATABASE_ADMIN_URL</span></code>:
+Admin connection used by <code class="docutils literal notranslate"><span class="pre">src/load_data.py</span></code> for database provisioning when
+<code class="docutils literal notranslate"><span class="pre">DATABASE_URL</span></code> is not set. Defaults to <code class="docutils literal notranslate"><span class="pre">dbname=postgres</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_ADMIN_URL</span><span class="o">=</span><span class="s2">&quot;postgresql://postgres:password@localhost:5432/postgres&quot;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>Optional LLM-hosting variables (for <code class="docutils literal notranslate"><span class="pre">src/llm_hosting/app.py</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">MODEL_REPO</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MODEL_FILE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">N_THREADS</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">N_CTX</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">N_GPU_LAYERS</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CANON_UNIS_PATH</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CANON_PROGS_PATH</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PORT</span></code></p></li>
+</ul>
+</section>
+<section id="run-the-app">
+<h2>Run the app<a class="headerlink" href="#run-the-app" title="Link to this heading">¶</a></h2>
+<p>From <code class="docutils literal notranslate"><span class="pre">jhu_software_concepts/module_4</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>src/run.py
+</pre></div>
+</div>
+<p>The Flask app listens on <code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code>.</p>
+</section>
+<section id="run-tests">
+<h2>Run tests<a class="headerlink" href="#run-tests" title="Link to this heading">¶</a></h2>
+<p>From <code class="docutils literal notranslate"><span class="pre">jhu_software_concepts/module_4</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest
+</pre></div>
+</div>
+<p>Run only marked groups (entire supported suite):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;web or buttons or analysis or db or integration&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Setup &amp; Run Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#required-environment-variables">Required environment variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-the-app">Run the app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-tests">Run tests</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Module 4 Documentation</a></li>
+      <li>Next: <a href="overview.html" title="next chapter">Overview</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Max M. McKie.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/setup.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
