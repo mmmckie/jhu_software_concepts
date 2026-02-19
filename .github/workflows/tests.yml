@@ -1,17 +1,11 @@
-name: module_4 pytest
+name: module_5 shift-left security
 
 on:
   push:
-    paths:
-      - "module_4/**"
-      - ".github/workflows/tests.yml"
   pull_request:
-    paths:
-      - "module_4/**"
-      - ".github/workflows/tests.yml"
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
 
     services:
@@ -44,14 +38,41 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-          cache-dependency-path: module_4/requirements.txt
+          cache-dependency-path: module_5/requirements.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r module_4/requirements.txt
-          pip install pytest pytest-cov
+          pip install -r module_5/requirements.txt
+          pip install pytest pytest-cov pylint pydeps
+
+      - name: Install Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+
+      - name: Run pylint (fail under 10)
+        working-directory: module_5
+        run: pylint src --fail-under=10
+
+      - name: Generate dependency graph
+        working-directory: module_5
+        run: |
+          pydeps src \
+            -xx board board.pages clean db_config load_data main query_data run scrape \
+            --noshow -o dependency.svg
+          test -f dependency.svg
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Run snyk test
+        working-directory: module_5
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+        run: snyk test --file=requirements.txt
 
       - name: Run pytest
-        working-directory: module_4
+        working-directory: module_5
         run: pytest
