@@ -2,7 +2,7 @@
 
 {% block head %}
   {{ super() }}
-  {% if pull_in_progress %}
+  {% if pull_in_progress or bootstrap_in_progress %}
     <meta http-equiv="refresh" content="2">
   {% endif %}
 {% endblock %}
@@ -21,7 +21,7 @@
     </div>
     <div class="analysis-actions-right">
       <form action="/update" method="post">
-        <button type="submit" data-testid="update-analysis-btn" {% if pull_in_progress %}disabled{% endif %}>Update Analysis</button>
+        <button type="submit" data-testid="update-analysis-btn" {% if pull_in_progress or bootstrap_in_progress %}disabled{% endif %}>Update Analysis</button>
       </form>
       <p class="action-note">
         Refreshes the analysis summary using the most up-to-date data currently available.
@@ -38,6 +38,8 @@
   {% endif %}
   {% if info_message %}
     <p>{{ info_message }}</p>
+  {% elif bootstrap_in_progress %}
+    <p>Initial database setup is running in the background. The page will refresh automatically once data is loaded.</p>
   {% elif pull_in_progress %}
     <p>Pull Data is currently running. Update Analysis will work once it finishes.</p>
   {% endif %}

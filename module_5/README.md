@@ -2,38 +2,29 @@ This module implements a data pipeline and web app for GradCafe admissions analy
 
 Fresh Install
 
-Method 1: pip
-
-1. Install Python 3.12.3 and PostgreSQL.
-2. `cd jhu_software_concepts/module_5`
-3. `python -m venv .venv`
-4. `source .venv/bin/activate`
-5. `pip install -r requirements.txt`
-6. `pip install -e .`
-7. Copy `../.env.example` to `../.env` and set real DB values.
-
-Method 2: uv
-
-1. Install Python 3.12.3, PostgreSQL, and `uv`.
-2. `cd jhu_software_concepts/module_5`
-3. `uv venv`
-4. `source .venv/bin/activate`
-5. `uv pip sync requirements.txt`
-6. `uv pip install -e .`
-7. Copy `../.env.example` to `../.env` and set real DB values.
-
-Steps to run analysis webpage on localhost:
-
 (1) Install PostgreSQL
 (2) Install Python 3.12.3
 (3) $git clone git@github.com:mmmckie/jhu_software_concepts.git
-(4) Ensure current working directory is jhu_software_concepts/module_5
-(5) $pip install -r requirements.txt
-(6) $pip install -e .
-(7) Copy `../.env.example` to `../.env` and set real DB values
-(8) (Optional but recommended) create least-privilege DB role:
+(4) $cd jhu_software_concepts/module_5
+
+Method 1: pip
+
+5. $python -m venv .venv
+6. $source .venv/bin/activate
+7. $pip install -r requirements.txt
+8. $pip install -e .
+
+Method 2: uv
+
+5. $uv venv
+6. $source .venv/bin/activate
+7. $uv pip sync requirements.txt
+8. $uv pip install -e .
+
+(9) Copy `../.env.example` to `../.env` and set real DB values.
+(10) (Optional but recommended) create least-privilege DB role:
     `$psql -U postgres -f docs/least_privilege.sql`
-(9) $python src/run.py
+(11) $python src/run.py
 
 Environment variables used by the app:
 

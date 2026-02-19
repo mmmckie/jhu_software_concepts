@@ -1,6 +1,39 @@
 """Environment-driven database connection configuration."""
 
 import os
+from pathlib import Path
+
+
+def _load_env_file(path: Path) -> None:
+    """Load KEY=VALUE pairs from a .env-style file into os.environ.
+
+    Existing environment variables are preserved.
+    """
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _autoload_env() -> None:
+    """Load local .env defaults when variables were not pre-exported."""
+    src_dir = Path(__file__).resolve().parent
+    env_candidates = (
+        src_dir.parent.parent / ".env",  # jhu_software_concepts/.env
+        src_dir.parent / ".env",         # module_5/.env (optional local override)
+    )
+    for env_path in env_candidates:
+        _load_env_file(env_path)
+
+
+_autoload_env()
 
 
 def _build_conn_info(

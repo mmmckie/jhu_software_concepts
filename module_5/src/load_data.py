@@ -3,6 +3,8 @@
 # Keep connection settings centralized so create/query/load paths share the same DB target.
 import os
 import json
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 from datetime import datetime
 import psycopg
@@ -182,4 +184,13 @@ def stream_jsonl_to_postgres(filepath):
     print('SUCCESS: Database populated')
 
 if __name__ == '__main__':
-    stream_jsonl_to_postgres('llm_extend_applicant_data.jsonl')
+    default_name = 'llm_extend_applicant_data.jsonl'
+    script_dir = Path(__file__).resolve().parent
+    default_path = Path(default_name)
+    fallback_path = script_dir / default_name
+    input_path = (
+        Path(sys.argv[1])
+        if len(sys.argv) > 1
+        else (default_path if default_path.exists() else fallback_path)
+    )
+    stream_jsonl_to_postgres(str(input_path))

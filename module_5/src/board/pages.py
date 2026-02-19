@@ -2,6 +2,7 @@
 
 import threading
 import traceback
+from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request
 
@@ -10,20 +11,28 @@ bp = Blueprint('pages', __name__)
 try:
     from query_data import run_analysis
     from main import update_new_records
+    from load_data import stream_jsonl_to_postgres
 except ModuleNotFoundError:
     from src.query_data import run_analysis
     from src.main import update_new_records
+    from src.load_data import stream_jsonl_to_postgres
 
 _PULL_LOCK = threading.Lock()
 # Shared state coordinates async pull requests across browser/API routes.
 _PULL_IN_PROGRESS = False
 _PULL_MESSAGE_PENDING = False
 _PULL_ERROR_PENDING = None
+_BOOTSTRAP_IN_PROGRESS = False
+_BOOTSTRAP_MESSAGE_PENDING = False
+_BOOTSTRAP_ERROR_PENDING = None
 
 _STATE_KEY_MAP = {
     'pull_in_progress': '_PULL_IN_PROGRESS',
     'pull_message_pending': '_PULL_MESSAGE_PENDING',
     'pull_error_pending': '_PULL_ERROR_PENDING',
+    'bootstrap_in_progress': '_BOOTSTRAP_IN_PROGRESS',
+    'bootstrap_message_pending': '_BOOTSTRAP_MESSAGE_PENDING',
+    'bootstrap_error_pending': '_BOOTSTRAP_ERROR_PENDING',
 }
 
 
@@ -65,6 +74,43 @@ def _update_new_records_service():
     """
     fn = current_app.config.get("UPDATE_NEW_RECORDS_FN", update_new_records)
     return fn()
+
+
+def _bootstrap_jsonl_path():
+    """Return canonical JSONL path used for first-time DB table/bootstrap load."""
+    return Path(__file__).resolve().parents[1] / 'llm_extend_applicant_data.jsonl'
+
+
+def _is_missing_admissions_table_error(exc):
+    """Return True when the error indicates the admissions table is missing."""
+    text = str(exc).lower()
+    return (
+        'relation "admissions" does not exist' in text
+        or "relation 'admissions' does not exist" in text
+    )
+
+
+def _start_bootstrap_worker():
+    """Start background table/bootstrap load once for fresh databases."""
+    if _state_get('bootstrap_in_progress'):
+        return
+
+    def _worker():
+        try:
+            stream_jsonl_to_postgres(str(_bootstrap_jsonl_path()))
+        except (RuntimeError, ValueError, OSError, TypeError) as exc:
+            _state_set(bootstrap_error_pending=f'Initial database setup failed: {exc}')
+            traceback.print_exc()
+        finally:
+            _state_set(bootstrap_in_progress=False)
+
+    _state_set(
+        bootstrap_in_progress=True,
+        bootstrap_message_pending=True,
+        bootstrap_error_pending=None,
+    )
+    threading.Thread(target=_worker, daemon=True).start()
+
 
 def _empty_results():
     """Return a zeroed analysis payload for guarded/busy template responses.
@@ -110,12 +156,23 @@ def analysis():
         # Message is one-shot to avoid repeating stale notices after refresh.
         info_message = 'Pull Data is currently running. Update Analysis will work once it finishes.'
         _state_set(pull_message_pending=False)
+    if _state_get('bootstrap_message_pending'):
+        info_message = (
+            'Initial database setup is running in the background. '
+            'The page will refresh automatically once data is loaded.'
+        )
+        _state_set(bootstrap_message_pending=False)
     pending_error = _state_get('pull_error_pending')
     if pending_error:
         error_message = pending_error
         _state_set(pull_error_pending=None)
+    bootstrap_error = _state_get('bootstrap_error_pending')
+    if bootstrap_error and not error_message:
+        error_message = bootstrap_error
+        _state_set(bootstrap_error_pending=None)
     try:
         pull_in_progress = _state_get('pull_in_progress')
+        bootstrap_in_progress = _state_get('bootstrap_in_progress')
         results = _run_analysis_service()
         if error_message:
             return render_template(
@@ -123,20 +180,37 @@ def analysis():
                 error=error_message,
                 results=results,
                 pull_in_progress=pull_in_progress,
+                bootstrap_in_progress=bootstrap_in_progress,
                 info_message=info_message,
             )
         return render_template(
             'pages/analysis.html',
             results=results,
             pull_in_progress=pull_in_progress,
+            bootstrap_in_progress=bootstrap_in_progress,
             info_message=info_message,
         )
     except (RuntimeError, ValueError, OSError, TypeError) as exc:
+        if _is_missing_admissions_table_error(exc):
+            _start_bootstrap_worker()
+            info_message = (
+                'Initial database setup is running in the background. '
+                'The page will refresh automatically once data is loaded.'
+            )
+            return render_template(
+                'pages/analysis.html',
+                results=_empty_results(),
+                pull_in_progress=_state_get('pull_in_progress'),
+                bootstrap_in_progress=_state_get('bootstrap_in_progress'),
+                info_message=info_message,
+            )
         pull_in_progress = _state_get('pull_in_progress')
+        bootstrap_in_progress = _state_get('bootstrap_in_progress')
         return render_template(
             'pages/analysis.html',
             error=str(exc),
             pull_in_progress=pull_in_progress,
+            bootstrap_in_progress=bootstrap_in_progress,
             info_message=info_message,
         )
 
@@ -162,6 +236,7 @@ def analysis_pull():
             render_template(
                 'pages/analysis.html',
                 pull_in_progress=True,
+                bootstrap_in_progress=_state_get('bootstrap_in_progress'),
                 results=_empty_results(),
                 info_message='Pull Data is already running. Please wait for it to finish.',
             ),
@@ -239,6 +314,7 @@ def analysis_update():
             'pages/analysis.html',
             results=results,
             pull_in_progress=_state_get('pull_in_progress'),
+            bootstrap_in_progress=_state_get('bootstrap_in_progress'),
             info_message='Analysis updated with the latest available data.',
         )
     except (RuntimeError, ValueError, OSError, TypeError) as exc:
@@ -248,4 +324,5 @@ def analysis_update():
             'pages/analysis.html',
             error=str(exc),
             pull_in_progress=_state_get('pull_in_progress'),
+            bootstrap_in_progress=_state_get('bootstrap_in_progress'),
         )
