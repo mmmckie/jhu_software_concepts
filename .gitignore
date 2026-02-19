@@ -4,3 +4,4 @@ module_5/venv
 .env
 **/.env
 **/.venv
+**/*egg-info

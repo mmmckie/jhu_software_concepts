@@ -190,3 +190,150 @@ def test_pages_import_uses_src_fallback_when_top_level_modules_missing(monkeypat
     # Assertions: resolved functions come from the fallback `src.*` modules.
     assert module.run_analysis() == {"from": "src.query_data"}
     assert module.update_new_records() == {"status": "from-src-main", "records": 0}
+
+
+def test_bootstrap_path_and_missing_relation_detection():
+    """Validate bootstrap JSONL path construction and missing-table error detection."""
+    import board.pages as pages
+
+    path = pages._bootstrap_jsonl_path()
+    assert path.name == "llm_extend_applicant_data.jsonl"
+    assert "src" in str(path)
+    assert pages._is_missing_admissions_table_error(
+        RuntimeError('Database query failed: relation "admissions" does not exist')
+    )
+    assert not pages._is_missing_admissions_table_error(RuntimeError("other failure"))
+
+
+def test_start_bootstrap_worker_returns_when_already_running(monkeypatch):
+    """Ensure bootstrap worker does not start twice when already marked in-progress."""
+    import board.pages as pages
+
+    monkeypatch.setattr(pages, "_BOOTSTRAP_IN_PROGRESS", True)
+    marker = {"started": False}
+
+    class NoStartThread:
+        def __init__(self, *args, **kwargs):
+            marker["started"] = True
+
+        def start(self):
+            marker["started"] = True
+
+    monkeypatch.setattr(pages.threading, "Thread", NoStartThread)
+    pages._start_bootstrap_worker()
+    assert marker["started"] is False
+
+
+def test_start_bootstrap_worker_success_sets_and_clears_state(monkeypatch):
+    """Ensure bootstrap worker loads JSONL and clears in-progress flag on success."""
+    import board.pages as pages
+
+    monkeypatch.setattr(pages, "_BOOTSTRAP_IN_PROGRESS", False)
+    monkeypatch.setattr(pages, "_BOOTSTRAP_MESSAGE_PENDING", False)
+    monkeypatch.setattr(pages, "_BOOTSTRAP_ERROR_PENDING", "stale")
+    calls = []
+
+    monkeypatch.setattr(
+        pages, "stream_jsonl_to_postgres", lambda p: calls.append(Path(p).name)
+    )
+
+    class InlineThread:
+        def __init__(self, target=None, args=(), daemon=None):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.setattr(pages.threading, "Thread", InlineThread)
+    pages._start_bootstrap_worker()
+
+    assert calls == ["llm_extend_applicant_data.jsonl"]
+    assert pages._state_get("bootstrap_in_progress") is False
+    assert pages._state_get("bootstrap_message_pending") is True
+    assert pages._state_get("bootstrap_error_pending") is None
+
+
+def test_start_bootstrap_worker_failure_sets_pending_error(monkeypatch):
+    """Ensure bootstrap worker stores user-visible error message on failure."""
+    import board.pages as pages
+
+    monkeypatch.setattr(pages, "_BOOTSTRAP_IN_PROGRESS", False)
+    monkeypatch.setattr(
+        pages,
+        "stream_jsonl_to_postgres",
+        lambda p: (_ for _ in ()).throw(RuntimeError("bootstrap failed")),
+    )
+    monkeypatch.setattr(pages.traceback, "print_exc", lambda: None)
+
+    class InlineThread:
+        def __init__(self, target=None, args=(), daemon=None):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.setattr(pages.threading, "Thread", InlineThread)
+    pages._start_bootstrap_worker()
+
+    assert pages._state_get("bootstrap_in_progress") is False
+    assert "Initial database setup failed: bootstrap failed" in pages._state_get(
+        "bootstrap_error_pending"
+    )
+
+
+def test_analysis_page_uses_bootstrap_pending_message(stubbed_client, monkeypatch, fake_results_payload):
+    """Ensure pending bootstrap message is rendered and consumed on analysis page."""
+    import board.pages as pages
+
+    monkeypatch.setattr(pages, "_BOOTSTRAP_MESSAGE_PENDING", True)
+    monkeypatch.setattr(pages, "run_analysis", lambda: fake_results_payload)
+
+    response = stubbed_client.get("/analysis")
+    page = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Initial database setup is running in the background." in page
+    assert pages._state_get("bootstrap_message_pending") is False
+
+
+def test_analysis_page_uses_bootstrap_pending_error(stubbed_client, monkeypatch, fake_results_payload):
+    """Ensure pending bootstrap error is shown on analysis page and then cleared."""
+    import board.pages as pages
+
+    monkeypatch.setattr(pages, "_PULL_ERROR_PENDING", None)
+    monkeypatch.setattr(pages, "_BOOTSTRAP_ERROR_PENDING", "Initial database setup failed: x")
+    monkeypatch.setattr(pages, "run_analysis", lambda: fake_results_payload)
+
+    response = stubbed_client.get("/analysis")
+    page = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Error loading analysis:" in page
+    assert "Initial database setup failed: x" in page
+    assert pages._state_get("bootstrap_error_pending") is None
+
+
+def test_analysis_missing_admissions_starts_bootstrap_and_shows_info(stubbed_client, monkeypatch):
+    """Ensure missing-admissions error starts bootstrap and renders friendly setup message."""
+    import board.pages as pages
+
+    called = {"bootstrap": False}
+    monkeypatch.setattr(
+        pages,
+        "run_analysis",
+        lambda: (_ for _ in ()).throw(
+            RuntimeError('Database query failed: relation "admissions" does not exist')
+        ),
+    )
+    monkeypatch.setattr(
+        pages, "_start_bootstrap_worker", lambda: called.__setitem__("bootstrap", True)
+    )
+
+    response = stubbed_client.get("/analysis")
+    page = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert called["bootstrap"] is True
+    assert "Initial database setup is running in the background." in page

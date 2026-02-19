@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import difflib
+from pathlib import Path
 from contextlib import nullcontext
 from functools import lru_cache
 from typing import Any, Dict, List, Tuple
@@ -17,6 +18,24 @@ from huggingface_hub import hf_hub_download
 from llama_cpp import Llama  # CPU-only by default if N_GPU_LAYERS=0
 
 app = Flask(__name__)
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_ALLOWED_CLI_ROOT = _SCRIPT_DIR.parent
+
+
+def _resolve_cli_path(raw_path: str, *, must_exist: bool) -> Path:
+    """Resolve a CLI path to a sanitized filename under ``src``.
+
+    Directory components provided by users are ignored; only a safe basename is used.
+    """
+    name = Path(raw_path).name
+    if not name or name in {".", ".."}:
+        raise ValueError(f"Invalid file name: {raw_path}")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        raise ValueError(f"Invalid file name: {raw_path}")
+    candidate = (_ALLOWED_CLI_ROOT / name).resolve()
+    if must_exist and not candidate.exists():
+        raise FileNotFoundError(f"Input file not found: {candidate}")
+    return candidate
 
 # Configuration intentionally comes from env vars to support local and CI execution.
 # ---------------- Model config ----------------
@@ -421,15 +440,17 @@ def _cli_process_file(
     :returns: ``None``.
     :rtype: None
     """
-    with open(in_path, "r", encoding="utf-8") as f:
+    safe_in_path = _resolve_cli_path(in_path, must_exist=True)
+    with open(safe_in_path, "r", encoding="utf-8") as f:
         rows = _normalize_input(json.load(f))
 
     if to_stdout:
         sink_cm = nullcontext(sys.stdout)
     else:
         out_path = out_path or "llm_extend_applicant_data.jsonl"
+        safe_out_path = _resolve_cli_path(out_path, must_exist=False)
         mode = "a" if append else "w"
-        sink_cm = open(out_path, mode, encoding="utf-8")
+        sink_cm = open(safe_out_path, mode, encoding="utf-8")
 
     with sink_cm as sink:
         for row in rows:

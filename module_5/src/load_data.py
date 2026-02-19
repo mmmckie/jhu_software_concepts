@@ -184,13 +184,14 @@ def stream_jsonl_to_postgres(filepath):
     print('SUCCESS: Database populated')
 
 if __name__ == '__main__':
-    default_name = 'llm_extend_applicant_data.jsonl'
+    DEFUALT_DATA_PATH = 'llm_extend_applicant_data.jsonl'
     script_dir = Path(__file__).resolve().parent
-    default_path = Path(default_name)
-    fallback_path = script_dir / default_name
+    default_path = Path(DEFUALT_DATA_PATH)
+    fallback_path = script_dir / DEFUALT_DATA_PATH
+    cli_path = next((arg for arg in sys.argv[1:] if not arg.startswith('-')), None)
     input_path = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
+        Path(cli_path)
+        if cli_path is not None
         else (default_path if default_path.exists() else fallback_path)
     )
     stream_jsonl_to_postgres(str(input_path))
