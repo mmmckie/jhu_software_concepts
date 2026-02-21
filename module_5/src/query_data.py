@@ -1,10 +1,11 @@
 """Analytical query layer for admissions reporting metrics."""
 
 # Approach: run focused SQL queries and merge scalar results into one dashboard payload.
-from types import SimpleNamespace
 from typing import Any, cast
+
 import psycopg
 from psycopg import sql
+
 from db_config import get_db_conn_info
 
 # Use the same connection string as your loader
@@ -12,10 +13,11 @@ conn_info = get_db_conn_info()
 MAX_QUERY_LIMIT = 100
 
 
-def _render_sql(stmt):
-    """Render a psycopg SQL composable without requiring a live connection object."""
-    # psycopg only needs an object exposing ``connection`` for SQL rendering.
-    return stmt.as_string(SimpleNamespace(connection=None))
+def _s(query_text: str) -> sql.Composable:
+    """Build a composable SQL statement from module-owned static SQL text."""
+    # psycopg treats `%` as placeholder syntax when execute() has params.
+    # Escape literal `%` used in LIKE/ILIKE patterns.
+    return sql.SQL(query_text.strip().rstrip(';').replace('%', '%%'))
 
 
 def _clamp_limit(limit, minimum=1, maximum=MAX_QUERY_LIMIT):
@@ -24,23 +26,17 @@ def _clamp_limit(limit, minimum=1, maximum=MAX_QUERY_LIMIT):
     return max(minimum, min(value, maximum))
 
 
-def _query_to_composable(query):
-    """Convert raw SQL text or composable SQL into a composable object."""
-    cleaned = str(query).strip().rstrip(';')
-    return sql.SQL(cleaned)
-
-
 def _compose_limited_query(query, limit):
     """Build a LIMIT-capped SQL statement around an arbitrary base query."""
-    base_query = _query_to_composable(query)
     safe_limit = _clamp_limit(limit)
     stmt = sql.SQL(
         "SELECT * FROM ({base_query}) AS analysis_query LIMIT {limit_value}"
     ).format(
-        base_query=base_query,
-        limit_value=sql.SQL(str(safe_limit)),
+        base_query=query,
+        limit_value=sql.Placeholder(),
     )
-    return stmt
+    return stmt, safe_limit
+
 
 def _query_scalar(query):
     """Return the first scalar value from a SQL query."""
@@ -49,18 +45,22 @@ def _query_scalar(query):
 
 def _build_overview_metrics():
     """Build top-level overview metrics used by the dashboard."""
-    total_records = _query_scalar("SELECT COUNT(*) FROM admissions;")
+    total_records = _query_scalar(_s("SELECT COUNT(*) FROM admissions"))
     fall_2026_applicants = _query_scalar(
-        """
-        SELECT COUNT(*) FROM admissions
-        WHERE term = 'Fall 2026';
-        """
+        _s(
+            """
+            SELECT COUNT(*) FROM admissions
+            WHERE term = 'Fall 2026'
+            """
+        )
     )
     internationals = _query_scalar(
-        """
-        SELECT COUNT(*) FROM admissions
-        WHERE us_or_international = 'International';
-        """
+        _s(
+            """
+            SELECT COUNT(*) FROM admissions
+            WHERE us_or_international = 'International'
+            """
+        )
     )
     international_percentage = (
         round((internationals / total_records) * 100, 2) if total_records else 0.0
@@ -75,52 +75,60 @@ def _build_overview_metrics():
 def _build_academic_metrics():
     """Build average-score and acceptance-rate metrics."""
     gpa, gre, gre_v, gre_aw = execute_query(
-        """
-        SELECT
-            ROUND(AVG(gpa)::numeric, 2) AS avg_gpa,
-            ROUND(AVG(gre)::numeric, 1) AS avg_gre_quant,
-            ROUND(AVG(gre_v)::numeric, 1) AS avg_gre_verbal,
-            ROUND(AVG(gre_aw)::numeric, 2) AS avg_gre_aw
-        FROM admissions
-        WHERE
-            (gpa BETWEEN 0.1 AND 5.0)
-            AND (gre BETWEEN 130 AND 170)
-            AND (gre_v BETWEEN 130 AND 170)
-            AND (gre_aw BETWEEN 0.0 AND 6.0);
-        """
+        _s(
+            """
+            SELECT
+                ROUND(AVG(gpa)::numeric, 2) AS avg_gpa,
+                ROUND(AVG(gre)::numeric, 1) AS avg_gre_quant,
+                ROUND(AVG(gre_v)::numeric, 1) AS avg_gre_verbal,
+                ROUND(AVG(gre_aw)::numeric, 2) AS avg_gre_aw
+            FROM admissions
+            WHERE
+                (gpa BETWEEN 0.1 AND 5.0)
+                AND (gre BETWEEN 130 AND 170)
+                AND (gre_v BETWEEN 130 AND 170)
+                AND (gre_aw BETWEEN 0.0 AND 6.0)
+            """
+        )
     )[0]
     american_fall_2026_gpa = _query_scalar(
-        """
-        SELECT
-            ROUND(AVG(gpa)::numeric, 2) AS avg_gpa
-        FROM admissions
-        WHERE
-            (gpa BETWEEN 0.1 AND 5.0)
-            AND (us_or_international = 'American')
-            AND (term = 'Fall 2026');
-        """
+        _s(
+            """
+            SELECT
+                ROUND(AVG(gpa)::numeric, 2) AS avg_gpa
+            FROM admissions
+            WHERE
+                (gpa BETWEEN 0.1 AND 5.0)
+                AND (us_or_international = 'American')
+                AND (term = 'Fall 2026')
+            """
+        )
     )
     fall_2025_acceptance_rate = _query_scalar(
-        """
-        SELECT
-            ROUND(
-                (COUNT(*) FILTER (WHERE status = 'Accepted')::numeric /
-                COUNT(*) * 100),
-                2
-            ) as acceptance_percentage
-        FROM admissions
-        WHERE term = 'Fall 2025';
-        """
+        _s(
+            """
+            SELECT
+                ROUND(
+                    (COUNT(*) FILTER (WHERE status = 'Accepted')::numeric /
+                    COUNT(*) * 100),
+                    2
+                ) as acceptance_percentage
+            FROM admissions
+            WHERE term = 'Fall 2025'
+            """
+        )
     )
     fall_2026_acceptance_gpa = _query_scalar(
-        """
-        SELECT
-            ROUND(AVG(gpa)::numeric, 2) AS avg_gpa
-        FROM admissions
-        WHERE
-            (term = 'Fall 2026')
-            AND (status = 'Accepted');
-        """
+        _s(
+            """
+            SELECT
+                ROUND(AVG(gpa)::numeric, 2) AS avg_gpa
+            FROM admissions
+            WHERE
+                (term = 'Fall 2026')
+                AND (status = 'Accepted')
+            """
+        )
     )
     return {
         'average_metrics': {
@@ -138,85 +146,93 @@ def _build_academic_metrics():
 def _build_program_metrics():
     """Build targeted program/university query metrics."""
     jhu_cs_masters = _query_scalar(
-        """
-        SELECT COUNT(*)
-        FROM admissions
-        WHERE (
-            llm_generated_university ILIKE '%john%hopkin%'
-            OR university ILIKE '%jhu%'
-            OR university ILIKE '%john%hopkin%'
+        _s(
+            """
+            SELECT COUNT(*)
+            FROM admissions
+            WHERE (
+                llm_generated_university ILIKE '%john%hopkin%'
+                OR university ILIKE '%jhu%'
+                OR university ILIKE '%john%hopkin%'
+            )
+            AND (
+                llm_generated_program ILIKE '%comp%sci%'
+                OR program ILIKE '%comp%sci%'
+                OR program = 'CS'
+            )
+            AND (degree = 'Masters')
+            """
         )
-        AND (
-            llm_generated_program ILIKE '%comp%sci%'
-            OR program ILIKE '%comp%sci%'
-            OR program = 'CS'
-        )
-        AND (degree = 'Masters');
-        """
     )
     ivy_2026_compsci_phds = _query_scalar(
-        """
-        SELECT COUNT(*)
-        FROM admissions
-        WHERE (
-            llm_generated_university = 'Massachusetts Institute of Technology'
-            OR university ILIKE '%mass%institute%tech'
-            OR university = 'MIT'
-            OR llm_generated_university = 'Stanford University'
-            OR university ILIKE '%stanford%'
-            OR university = 'SU'
-            OR llm_generated_university = 'Georgetown University'
-            OR university ILIKE '%georgetown%'
-            OR llm_generated_university = 'Carnegie Mellon University'
-            OR university ILIKE '%carnegie%mellon%'
-            OR university ILIKE '%carnegie%melon%'
-            OR university = 'CMU'
+        _s(
+            """
+            SELECT COUNT(*)
+            FROM admissions
+            WHERE (
+                llm_generated_university = 'Massachusetts Institute of Technology'
+                OR university ILIKE '%mass%institute%tech'
+                OR university = 'MIT'
+                OR llm_generated_university = 'Stanford University'
+                OR university ILIKE '%stanford%'
+                OR university = 'SU'
+                OR llm_generated_university = 'Georgetown University'
+                OR university ILIKE '%georgetown%'
+                OR llm_generated_university = 'Carnegie Mellon University'
+                OR university ILIKE '%carnegie%mellon%'
+                OR university ILIKE '%carnegie%melon%'
+                OR university = 'CMU'
+            )
+            AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
+            AND (
+                llm_generated_program ILIKE '%comp%sci%'
+                OR program ILIKE '%comp%sci%'
+                OR program = 'CS'
+            )
+            AND (degree = 'PhD')
+            """
         )
-        AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
-        AND (
-            llm_generated_program ILIKE '%comp%sci%'
-            OR program ILIKE '%comp%sci%'
-            OR program = 'CS'
-        )
-        AND (degree = 'PhD');
-        """
     )
     ivy_2026_compsci_phds_llm_fields = _query_scalar(
-        """
-        SELECT COUNT(*)
-        FROM admissions
-        WHERE (
-            llm_generated_university = 'Massachusetts Institute of Technology'
-            OR llm_generated_university = 'Stanford University'
-            OR llm_generated_university = 'Georgetown University'
-            OR llm_generated_university = 'Carnegie Mellon University'
+        _s(
+            """
+            SELECT COUNT(*)
+            FROM admissions
+            WHERE (
+                llm_generated_university = 'Massachusetts Institute of Technology'
+                OR llm_generated_university = 'Stanford University'
+                OR llm_generated_university = 'Georgetown University'
+                OR llm_generated_university = 'Carnegie Mellon University'
+            )
+            AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
+            AND (llm_generated_program ILIKE '%comp%sci%')
+            AND (degree = 'PhD')
+            """
         )
-        AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
-        AND (llm_generated_program ILIKE '%comp%sci%')
-        AND (degree = 'PhD');
-        """
     )
     ivy_2026_compsci_phds_raw_fields = _query_scalar(
-        """
-        SELECT COUNT(*)
-        FROM admissions
-        WHERE (
-            university ILIKE '%mass%institute%tech'
-            OR university = 'MIT'
-            OR university ILIKE '%stanford%'
-            OR university = 'SU'
-            OR university ILIKE '%georgetown%'
-            OR university ILIKE '%carnegie%mellon%'
-            OR university ILIKE '%carnegie%melon%'
-            OR university = 'CMU'
+        _s(
+            """
+            SELECT COUNT(*)
+            FROM admissions
+            WHERE (
+                university ILIKE '%mass%institute%tech'
+                OR university = 'MIT'
+                OR university ILIKE '%stanford%'
+                OR university = 'SU'
+                OR university ILIKE '%georgetown%'
+                OR university ILIKE '%carnegie%mellon%'
+                OR university ILIKE '%carnegie%melon%'
+                OR university = 'CMU'
+            )
+            AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
+            AND (
+                program ILIKE '%comp%sci%'
+                OR program = 'CS'
+            )
+            AND (degree = 'PhD')
+            """
         )
-        AND (date_added BETWEEN '2026-01-01' AND '2026-12-31')
-        AND (
-            program ILIKE '%comp%sci%'
-            OR program = 'CS'
-        )
-        AND (degree = 'PhD');
-        """
     )
     return {
         'jhu_cs_masters': jhu_cs_masters,
@@ -229,48 +245,54 @@ def _build_program_metrics():
 def _build_additional_metrics():
     """Build term comparison and GPA-reporting acceptance metrics."""
     fall_2025_applicants, spring_2025_applicants = execute_query(
-        """
-        SELECT
-            COUNT(*) FILTER (WHERE term = 'Fall 2025') as fall_count,
-            COUNT(*) FILTER (WHERE term = 'Spring 2025') as spring_count
-        FROM admissions;
-        """
+        _s(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE term = 'Fall 2025') as fall_count,
+                COUNT(*) FILTER (WHERE term = 'Spring 2025') as spring_count
+            FROM admissions
+            """
+        )
     )[0]
     masters_acceptance = execute_query(
-        """
-        SELECT
-            CASE
-                WHEN gpa IS NOT NULL THEN 'Reported GPA'
-                ELSE 'No GPA'
-            END AS gpa_status,
-            COUNT(*) as total_apps,
-            ROUND(
-                (COUNT(*) FILTER (WHERE status = 'Accepted')::numeric / COUNT(*) * 100),
-                2
-            ) as acceptance_rate
-        FROM admissions
-        WHERE degree = 'Masters'
-        AND us_or_international = 'American'
-        GROUP BY gpa_status;
-        """
+        _s(
+            """
+            SELECT
+                CASE
+                    WHEN gpa IS NOT NULL THEN 'Reported GPA'
+                    ELSE 'No GPA'
+                END AS gpa_status,
+                COUNT(*) as total_apps,
+                ROUND(
+                    (COUNT(*) FILTER (WHERE status = 'Accepted')::numeric / COUNT(*) * 100),
+                    2
+                ) as acceptance_rate
+            FROM admissions
+            WHERE degree = 'Masters'
+            AND us_or_international = 'American'
+            GROUP BY gpa_status
+            """
+        )
     )
     phd_acceptance = execute_query(
-        """
-        SELECT
-            CASE
-                WHEN gpa IS NOT NULL THEN 'Reported GPA'
-                ELSE 'No GPA'
-            END AS gpa_status,
-            COUNT(*) as total_apps,
-            ROUND(
-                (COUNT(*) FILTER (WHERE status = 'Accepted')::numeric / COUNT(*) * 100),
-                2
-            ) as acceptance_rate
-        FROM admissions
-        WHERE degree = 'PhD'
-        AND us_or_international = 'American'
-        GROUP BY gpa_status;
-        """
+        _s(
+            """
+            SELECT
+                CASE
+                    WHEN gpa IS NOT NULL THEN 'Reported GPA'
+                    ELSE 'No GPA'
+                END AS gpa_status,
+                COUNT(*) as total_apps,
+                ROUND(
+                    (COUNT(*) FILTER (WHERE status = 'Accepted')::numeric / COUNT(*) * 100),
+                    2
+                ) as acceptance_rate
+            FROM admissions
+            WHERE degree = 'PhD'
+            AND us_or_international = 'American'
+            GROUP BY gpa_status
+            """
+        )
     )
     masters_map = {row[0]: row[-1] for row in masters_acceptance}
     phd_map = {row[0]: row[-1] for row in phd_acceptance}
@@ -301,8 +323,8 @@ def run_analysis():
 def execute_query(query, params=None, limit=MAX_QUERY_LIMIT):
     """Execute a SQL query and return all result rows.
 
-    :param query: SQL query text to execute.
-    :type query: str | psycopg.sql.Composable
+    :param query: SQL query composable to execute.
+    :type query: psycopg.sql.Composable
     :param params: Optional SQL parameter values for placeholders in ``query``.
     :type params: list | tuple | None
     :param limit: Maximum number of rows to return, clamped to [1, 100].
@@ -312,14 +334,20 @@ def execute_query(query, params=None, limit=MAX_QUERY_LIMIT):
     :raises RuntimeError: Wrapped database exception with contextual message.
     """
     try:
+        if not isinstance(query, sql.Composable):
+            raise ValueError("Query must be psycopg.sql.Composable")
+
         connection = cast(Any, psycopg.connect(conn_info))
         with getattr(connection, 'cursor')() as cur:
-            stmt = _compose_limited_query(query, limit)
-            exec_params = params if params else None
-            cur.execute(_render_sql(stmt), exec_params)
+            stmt, safe_limit = _compose_limited_query(query, limit)
+            if params is None:
+                exec_params = (safe_limit,)
+            else:
+                exec_params = (*tuple(params), safe_limit)
+            cur.execute(stmt, exec_params)
             return cur.fetchall()
 
-    except Exception as e:
+    except (psycopg.Error, RuntimeError, ValueError, TypeError) as e:
         raise RuntimeError(f'Database query failed: {e}') from e
 
 

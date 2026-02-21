@@ -229,5 +229,5 @@ def test_pull_data_route_executes_postgres_loader_path(stubbed_client, monkeypat
     assert body["records"] == 1
     # Assertions: loader executed write-path behavior (transaction commit + schema/insert SQL).
     assert fake_conn.committed is True
-    assert any("CREATE TABLE IF NOT EXISTS admissions" in q for q, _ in fake_cursor.executed)
-    assert any("INSERT INTO admissions" in q for q, _ in fake_cursor.executed)
+    assert any("CREATE TABLE IF NOT EXISTS admissions" in str(q) for q, _ in fake_cursor.executed)
+    assert any("INSERT INTO admissions" in str(q) for q, _ in fake_cursor.executed)

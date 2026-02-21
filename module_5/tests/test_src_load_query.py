@@ -27,7 +27,7 @@ def test_load_data_helpers_and_stream_jsonl(monkeypatch, tmp_path, capsys):
     conn1 = FakeConn(c1)
     monkeypatch.setattr(load_data.psycopg, "connect", lambda *args, **kwargs: conn1)
     load_data.create_db_if_not_exists()
-    assert any("CREATE DATABASE" in q for q, _ in c1.executed)
+    assert any("CREATE DATABASE" in str(q) for q, _ in c1.executed)
 
     # create_db_if_not_exists: existing DB branch prints status only.
     c2 = FakeCursor(fetchone_values=[(1,)])
@@ -104,8 +104,8 @@ def test_load_data_helpers_and_stream_jsonl(monkeypatch, tmp_path, capsys):
     # Assertions: ingest path bootstraps DB, creates schema, inserts data, and commits once.
     assert calls["createdb"] == 1
     assert stream_conn.committed is True
-    assert any("CREATE TABLE IF NOT EXISTS admissions" in q for q, _ in stream_cursor.executed)
-    assert any("INSERT INTO admissions" in q for q, _ in stream_cursor.executed)
+    assert any("CREATE TABLE IF NOT EXISTS admissions" in str(q) for q, _ in stream_cursor.executed)
+    assert any("INSERT INTO admissions" in str(q) for q, _ in stream_cursor.executed)
 
 
 def test_database_url_env_override(monkeypatch):
@@ -130,6 +130,18 @@ def test_database_url_env_override(monkeypatch):
     importlib.reload(query_data)
 
 
+def test_provision_schema_raises_when_database_url_set(monkeypatch):
+    """Ensure admin-provision path is blocked when DATABASE_URL is explicitly set."""
+    import load_data
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host:5432/testdb")
+
+    with pytest.raises(RuntimeError, match="admissions table is missing"):
+        load_data._provision_admissions_schema()
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+
 def test_load_data_main_guard(monkeypatch, tmp_path):
     """Validate ``load_data.py`` script guard executes ingest flow."""
     # Setup: fake psycopg and input file so script guard can run without real DB/filesystem deps.
@@ -145,7 +157,24 @@ def test_load_data_main_guard(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     # Assertions: running script guard attempts schema creation and/or inserts.
     runpy.run_path(str(SRC_ROOT / "load_data.py"), run_name="__main__")
-    assert any("INSERT INTO admissions" in q or "CREATE TABLE IF NOT EXISTS admissions" in q for q, _ in c.executed)
+    assert any(
+        "INSERT INTO admissions" in str(q) or "CREATE TABLE IF NOT EXISTS admissions" in str(q)
+        for q, _ in c.executed
+    )
+
+
+def test_get_existing_urls_paginates_until_empty_batch(monkeypatch):
+    """Ensure URL fetch loops across pages and exits on empty terminal batch."""
+    import load_data
+
+    first_batch = [(f"u{i}",) for i in range(100)]
+    c = FakeCursor(fetchall_values=[first_batch, []])
+    monkeypatch.setattr(load_data.psycopg, "connect", lambda *args, **kwargs: FakeConn(c))
+
+    urls = load_data.get_existing_urls()
+
+    assert len(urls) == 100
+    assert len(c.executed) == 2
 
 
 def test_query_data_run_analysis_and_execute_query_error(monkeypatch):
@@ -213,7 +242,22 @@ def test_query_data_run_analysis_and_execute_query_error(monkeypatch):
     monkeypatch.setattr(query_data.psycopg, "connect", fail_connect)
     # Assertions: raw DB exception is wrapped by `execute_query` as RuntimeError.
     with pytest.raises(RuntimeError):
+        query_data.execute_query(query_data.sql.SQL("SELECT 1"))
+
+
+def test_query_data_execute_query_rejects_raw_sql_and_binds_limit(monkeypatch):
+    """Validate execute_query rejects raw strings and appends bound limit param."""
+    import query_data
+
+    with pytest.raises(RuntimeError, match="Query must be psycopg.sql.Composable"):
         query_data.execute_query("SELECT 1")
+
+    c = FakeCursor(fetchall_values=[[(1,)]])
+    monkeypatch.setattr(query_data.psycopg, "connect", lambda *args, **kwargs: FakeConn(c))
+
+    out = query_data.execute_query(query_data.sql.SQL("SELECT %s"), params=(1,), limit=1000)
+    assert out == [(1,)]
+    assert c.executed[0][1] == (1, 100)
 
 
 def test_query_data_main_guard(monkeypatch, capsys):

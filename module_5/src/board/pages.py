@@ -4,6 +4,7 @@ import threading
 import traceback
 from pathlib import Path
 
+import psycopg
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request
 
 bp = Blueprint('pages', __name__)
@@ -255,7 +256,7 @@ def analysis_pull():
             """
             try:
                 fn()
-            except (RuntimeError, ValueError, OSError, TypeError) as exc:
+            except (RuntimeError, ValueError, OSError, TypeError, psycopg.Error) as exc:
                 _state_set(pull_error_pending=f'Pull Data failed: {exc}')
                 traceback.print_exc()
             finally:
@@ -283,7 +284,7 @@ def analysis_pull():
                 "status": update_status.get("status"),
             }
         ), 200
-    except (RuntimeError, ValueError, OSError, TypeError) as exc:
+    except (RuntimeError, ValueError, OSError, TypeError, psycopg.Error) as exc:
         _state_set(pull_in_progress=False)
         return jsonify({"busy": False, "ok": False, "error": str(exc)}), 500
 
