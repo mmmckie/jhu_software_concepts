@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>llm_hosting.app &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for llm_hosting.app</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Flask + tiny local LLM standardizer with incremental JSONL CLI output.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">difflib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">nullcontext</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">flask</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">jsonify</span><span class="p">,</span> <span class="n">request</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">huggingface_hub</span><span class="w"> </span><span class="kn">import</span> <span class="n">hf_hub_download</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">llama_cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Llama</span>  <span class="c1"># CPU-only by default if N_GPU_LAYERS=0</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">_SCRIPT_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">_ALLOWED_CLI_ROOT</span> <span class="o">=</span> <span class="n">_SCRIPT_DIR</span><span class="o">.</span><span class="n">parent</span>
+
+
+<div class="viewcode-block" id="_resolve_cli_path">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._resolve_cli_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_cli_path</span><span class="p">(</span><span class="n">raw_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">must_exist</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a CLI path to a sanitized filename under ``src``.</span>
+
+<span class="sd">    Directory components provided by users are ignored; only a safe basename is used.</span>
+
+<span class="sd">    :param raw_path: User-provided input/output path argument.</span>
+<span class="sd">    :type raw_path: str</span>
+<span class="sd">    :param must_exist: Whether the resolved path must already exist.</span>
+<span class="sd">    :type must_exist: bool</span>
+<span class="sd">    :returns: Sanitized and resolved path under the allowed CLI root.</span>
+<span class="sd">    :rtype: pathlib.Path</span>
+<span class="sd">    :raises ValueError: If the provided name is invalid.</span>
+<span class="sd">    :raises FileNotFoundError: If ``must_exist`` is true and the file is absent.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">raw_path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid file name: </span><span class="si">{</span><span class="n">raw_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[A-Za-z0-9._-]+&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid file name: </span><span class="si">{</span><span class="n">raw_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">candidate</span> <span class="o">=</span> <span class="p">(</span><span class="n">_ALLOWED_CLI_ROOT</span> <span class="o">/</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">must_exist</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">candidate</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input file not found: </span><span class="si">{</span><span class="n">candidate</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">candidate</span></div>
+
+
+<span class="c1"># Configuration intentionally comes from env vars to support local and CI execution.</span>
+<span class="c1"># ---------------- Model config ----------------</span>
+<span class="n">MODEL_REPO</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span>
+    <span class="s2">&quot;MODEL_REPO&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">MODEL_FILE</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span>
+    <span class="s2">&quot;MODEL_FILE&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">N_THREADS</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;N_THREADS&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span> <span class="ow">or</span> <span class="mi">2</span><span class="p">)))</span>
+<span class="n">N_CTX</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;N_CTX&quot;</span><span class="p">,</span> <span class="s2">&quot;2048&quot;</span><span class="p">))</span>
+<span class="n">N_GPU_LAYERS</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;N_GPU_LAYERS&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">))</span>  <span class="c1"># 0 → CPU-only</span>
+
+<span class="n">CANON_UNIS_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;CANON_UNIS_PATH&quot;</span><span class="p">,</span> <span class="s2">&quot;canon_universities.txt&quot;</span><span class="p">)</span>
+<span class="n">CANON_PROGS_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;CANON_PROGS_PATH&quot;</span><span class="p">,</span> <span class="s2">&quot;canon_programs.txt&quot;</span><span class="p">)</span>
+
+<span class="c1"># Precompiled, non-greedy JSON object matcher to tolerate chatter around JSON</span>
+<span class="n">JSON_OBJ_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\{.*?\}&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">)</span>
+
+<span class="c1"># ---------------- Canonical lists + abbrev maps ----------------</span>
+<div class="viewcode-block" id="_read_lines">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._read_lines">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_lines</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read non-empty UTF-8 lines from a text file.</span>
+
+<span class="sd">    :param path: File path to read.</span>
+<span class="sd">    :type path: str</span>
+<span class="sd">    :returns: Stripped non-empty lines, or empty list if file missing.</span>
+<span class="sd">    :rtype: list[str]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">ln</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">ln</span> <span class="ow">in</span> <span class="n">f</span> <span class="k">if</span> <span class="n">ln</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+
+
+<span class="n">CANON_UNIS</span> <span class="o">=</span> <span class="n">_read_lines</span><span class="p">(</span><span class="n">CANON_UNIS_PATH</span><span class="p">)</span>
+<span class="n">CANON_PROGS</span> <span class="o">=</span> <span class="n">_read_lines</span><span class="p">(</span><span class="n">CANON_PROGS_PATH</span><span class="p">)</span>
+
+<span class="n">ABBREV_UNI</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sa">r</span><span class="s2">&quot;(?i)^mcg(\.|ill)?$&quot;</span><span class="p">:</span> <span class="s2">&quot;McGill University&quot;</span><span class="p">,</span>
+    <span class="sa">r</span><span class="s2">&quot;(?i)^(ubc|u\.?b\.?c\.?)$&quot;</span><span class="p">:</span> <span class="s2">&quot;University of British Columbia&quot;</span><span class="p">,</span>
+    <span class="sa">r</span><span class="s2">&quot;(?i)^uoft$&quot;</span><span class="p">:</span> <span class="s2">&quot;University of Toronto&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">COMMON_UNI_FIXES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;McGiill University&quot;</span><span class="p">:</span> <span class="s2">&quot;McGill University&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Mcgill University&quot;</span><span class="p">:</span> <span class="s2">&quot;McGill University&quot;</span><span class="p">,</span>
+    <span class="c1"># Normalize &#39;Of&#39; → &#39;of&#39;</span>
+    <span class="s2">&quot;University Of British Columbia&quot;</span><span class="p">:</span> <span class="s2">&quot;University of British Columbia&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">COMMON_PROG_FIXES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;Mathematic&quot;</span><span class="p">:</span> <span class="s2">&quot;Mathematics&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Info Studies&quot;</span><span class="p">:</span> <span class="s2">&quot;Information Studies&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">SYSTEM_PROMPT</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;### Role</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;You are a precise Data Normalization Specialist. &quot;</span>
+    <span class="s2">&quot;Your task is to clean and standardize academic data from The GradCafe.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;### Task</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;Standardize the &#39;program&#39; and &#39;university&#39; fields into their most complete, &quot;</span>
+    <span class="s2">&quot;formal academic versions.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;### Rules for Standardization</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;1. Program Name:</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- Convert to Title Case (e.g., &#39;physics&#39; -&gt; &#39;Physics&#39;).</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- Expand abbreviations &quot;</span>
+    <span class="s2">&quot;(e.g., &#39;PoliSci&#39; -&gt; &#39;Political Science&#39;, &#39;Mech E&#39; -&gt; &quot;</span>
+    <span class="s2">&quot;&#39;Mechanical Engineering&#39;, &#39;CS&#39; -&gt; &#39;Computer Science&#39;).</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- Remove irrelevant details like &#39;Interdisciplinary&#39; or &#39;Department of&#39; &quot;</span>
+    <span class="s2">&quot;unless it is part of the formal name.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;2. University Name:</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- Use the full, formal name (e.g., &#39;U of T&#39; -&gt; &#39;University of Toronto&#39;).</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- Correct common typos (e.g., &#39;McGiill&#39; -&gt; &#39;McGill University&#39;).</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- Standardize &#39;UOfX&#39; or &#39;U of X&#39; to &#39;University of X&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- If the name is ambiguous (e.g., &#39;UofA&#39; could be Arizona or Alberta), &quot;</span>
+    <span class="s2">&quot;prioritize the most likely North American institution unless context &quot;</span>
+    <span class="s2">&quot;suggests otherwise.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;### Constraints</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- DO NOT add conversational filler or commentary.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;- If the university is missing or impossible to determine, return &#39;Unknown&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;### Output Format</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;Return JSON ONLY with exactly these two keys:</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;{</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;</span><span class="se">\&quot;</span><span class="s2">standardized_program</span><span class="se">\&quot;</span><span class="s2">: </span><span class="se">\&quot;</span><span class="s2">&lt;Clean Name&gt;</span><span class="se">\&quot;</span><span class="s2">,</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;</span><span class="se">\&quot;</span><span class="s2">standardized_university</span><span class="se">\&quot;</span><span class="s2">: </span><span class="se">\&quot;</span><span class="s2">&lt;Clean Name&gt;</span><span class="se">\&quot;\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;}&quot;</span>
+<span class="p">)</span>
+
+<span class="n">FEW_SHOTS</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;Information Studies&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;McGill University&quot;</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Information Studies&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;McGill University&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;Information&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;McG&quot;</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Information Studies&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;McGill University&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;Mathematics&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;University Of British Columbia&quot;</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Mathematics&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;University of British Columbia&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;physics&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;UofA&quot;</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Physics&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;University of Arizona&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;PoliSci&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;Georgetown&quot;</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Political Science&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;Georgetown University&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;Mech E&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;U Rochester&quot;</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Mechanical Engineering&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;University of Rochester&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;Bio-med sci&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;SUNY SB&quot;</span><span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Biomedical Sciences&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;Stony Brook University, The State University of New York&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="s2">&quot;clinical psych&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="s2">&quot;MIT&quot;</span><span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="s2">&quot;Clinical Psychology&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="s2">&quot;Massachusetts Institute of Technology&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="p">),</span>
+<span class="p">]</span>
+
+<div class="viewcode-block" id="_load_llm">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._load_llm">[docs]</a>
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_llm</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Llama</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and memoize the local llama.cpp model.</span>
+
+<span class="sd">    :returns: Initialized llama.cpp model instance.</span>
+<span class="sd">    :rtype: llama_cpp.Llama</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model_path</span> <span class="o">=</span> <span class="n">hf_hub_download</span><span class="p">(</span>
+        <span class="n">repo_id</span><span class="o">=</span><span class="n">MODEL_REPO</span><span class="p">,</span>
+        <span class="n">filename</span><span class="o">=</span><span class="n">MODEL_FILE</span><span class="p">,</span>
+        <span class="n">local_dir</span><span class="o">=</span><span class="s2">&quot;models&quot;</span><span class="p">,</span>
+        <span class="n">local_dir_use_symlinks</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">force_filename</span><span class="o">=</span><span class="n">MODEL_FILE</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load once and reuse to avoid repeated model init costs per request/row.</span>
+    <span class="k">return</span> <span class="n">Llama</span><span class="p">(</span>
+        <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+        <span class="n">n_ctx</span><span class="o">=</span><span class="n">N_CTX</span><span class="p">,</span>
+        <span class="n">n_threads</span><span class="o">=</span><span class="n">N_THREADS</span><span class="p">,</span>
+        <span class="n">n_gpu_layers</span><span class="o">=</span><span class="n">N_GPU_LAYERS</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="_split_fallback">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._split_fallback">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_split_fallback</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse program/university with heuristics when model output is invalid.</span>
+
+<span class="sd">    :param text: Raw text to parse.</span>
+<span class="sd">    :type text: str</span>
+<span class="sd">    :returns: ``(program, university)`` tuple.</span>
+<span class="sd">    :rtype: tuple[str, str]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;,| at | @ &quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="n">prog</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">parts</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">uni</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="c1"># High-signal expansions</span>
+    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?i)mcg(ill)?(\.)?&quot;</span><span class="p">,</span> <span class="n">uni</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="n">uni</span> <span class="o">=</span> <span class="s2">&quot;McGill University&quot;</span>
+    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;(?i)(ubc|u\.?b\.?c\.?|university of british columbia)&quot;</span><span class="p">,</span>
+        <span class="n">uni</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">uni</span> <span class="o">=</span> <span class="s2">&quot;University of British Columbia&quot;</span>
+
+    <span class="c1"># Title-case program; normalize &#39;Of&#39; → &#39;of&#39; for universities</span>
+    <span class="n">prog</span> <span class="o">=</span> <span class="n">prog</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">uni</span><span class="p">:</span>
+        <span class="n">uni</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\bOf\b&quot;</span><span class="p">,</span> <span class="s2">&quot;of&quot;</span><span class="p">,</span> <span class="n">uni</span><span class="o">.</span><span class="n">title</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">uni</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
+    <span class="k">return</span> <span class="n">prog</span><span class="p">,</span> <span class="n">uni</span></div>
+
+
+
+<div class="viewcode-block" id="_best_match">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._best_match">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_best_match</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">cutoff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.86</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return best fuzzy match from candidate list.</span>
+
+<span class="sd">    :param name: Input string to match.</span>
+<span class="sd">    :type name: str</span>
+<span class="sd">    :param candidates: Candidate canonical strings.</span>
+<span class="sd">    :type candidates: list[str]</span>
+<span class="sd">    :param cutoff: Similarity threshold in ``[0.0, 1.0]``.</span>
+<span class="sd">    :type cutoff: float</span>
+<span class="sd">    :returns: Best candidate or ``None`` if no match meets cutoff.</span>
+<span class="sd">    :rtype: str | None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">matches</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="n">cutoff</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">matches</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="_post_normalize_program">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._post_normalize_program">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_post_normalize_program</span><span class="p">(</span><span class="n">prog</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a program string to canonical output format.</span>
+
+<span class="sd">    :param prog: Raw or model-generated program text.</span>
+<span class="sd">    :type prog: str</span>
+<span class="sd">    :returns: Canonicalized program name.</span>
+<span class="sd">    :rtype: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="p">(</span><span class="n">prog</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">COMMON_PROG_FIXES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">CANON_PROGS</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">p</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">_best_match</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">CANON_PROGS</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">0.84</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">match</span> <span class="ow">or</span> <span class="n">p</span></div>
+
+
+
+<div class="viewcode-block" id="_post_normalize_university">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._post_normalize_university">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_post_normalize_university</span><span class="p">(</span><span class="n">uni</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a university string to canonical output format.</span>
+
+<span class="sd">    :param uni: Raw or model-generated university text.</span>
+<span class="sd">    :type uni: str</span>
+<span class="sd">    :returns: Canonicalized university name, or ``\&quot;Unknown\&quot;``.</span>
+<span class="sd">    :rtype: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="p">(</span><span class="n">uni</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="c1"># Abbreviations</span>
+    <span class="k">for</span> <span class="n">pat</span><span class="p">,</span> <span class="n">full</span> <span class="ow">in</span> <span class="n">ABBREV_UNI</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">pat</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">full</span>
+            <span class="k">break</span>
+
+    <span class="c1"># Common spelling fixes</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">COMMON_UNI_FIXES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+    <span class="c1"># Normalize &#39;Of&#39; → &#39;of&#39;</span>
+    <span class="k">if</span> <span class="n">u</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\bOf\b&quot;</span><span class="p">,</span> <span class="s2">&quot;of&quot;</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">title</span><span class="p">())</span>
+
+    <span class="c1"># Canonical or fuzzy map</span>
+    <span class="k">if</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">CANON_UNIS</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">u</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">_best_match</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">CANON_UNIS</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">0.86</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">match</span> <span class="ow">or</span> <span class="n">u</span> <span class="ow">or</span> <span class="s2">&quot;Unknown&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="_call_llm">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._call_llm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_call_llm</span><span class="p">(</span><span class="n">program_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">school_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Call the model and return standardized fields.</span>
+
+<span class="sd">    :param program_text: Program value from input row.</span>
+<span class="sd">    :type program_text: str</span>
+<span class="sd">    :param school_text: University value from input row.</span>
+<span class="sd">    :type school_text: str</span>
+<span class="sd">    :returns: Standardized program and university.</span>
+<span class="sd">    :rtype: dict[str, str]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">llm</span> <span class="o">=</span> <span class="n">_load_llm</span><span class="p">()</span>
+
+    <span class="n">messages</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">SYSTEM_PROMPT</span><span class="p">}]</span>
+    <span class="k">for</span> <span class="n">x_in</span><span class="p">,</span> <span class="n">x_out</span> <span class="ow">in</span> <span class="n">FEW_SHOTS</span><span class="p">:</span>
+        <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">x_in</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)}</span>
+        <span class="p">)</span>
+        <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">x_out</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+                    <span class="p">{</span><span class="s2">&quot;program&quot;</span><span class="p">:</span> <span class="n">program_text</span><span class="p">,</span> <span class="s2">&quot;university&quot;</span><span class="p">:</span> <span class="n">school_text</span><span class="p">},</span>
+                    <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="n">out</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">create_chat_completion</span><span class="p">(</span>
+        <span class="n">messages</span><span class="o">=</span><span class="n">messages</span><span class="p">,</span>
+        <span class="n">temperature</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">max_tokens</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+        <span class="n">top_p</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s2">&quot;choices&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;message&quot;</span><span class="p">][</span><span class="s2">&quot;content&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Pull the first JSON object even if the model adds extra wrapper text.</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">JSON_OBJ_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">match</span> <span class="k">else</span> <span class="n">text</span><span class="p">)</span>
+        <span class="n">std_prog</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;standardized_program&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">std_uni</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;standardized_university&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="n">std_prog</span><span class="p">,</span> <span class="n">std_uni</span> <span class="o">=</span> <span class="n">_split_fallback</span><span class="p">(</span><span class="n">program_text</span><span class="p">)</span>
+
+    <span class="n">std_prog</span> <span class="o">=</span> <span class="n">_post_normalize_program</span><span class="p">(</span><span class="n">std_prog</span><span class="p">)</span>
+    <span class="n">std_uni</span> <span class="o">=</span> <span class="n">_post_normalize_university</span><span class="p">(</span><span class="n">std_uni</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;standardized_program&quot;</span><span class="p">:</span> <span class="n">std_prog</span><span class="p">,</span>
+        <span class="s2">&quot;standardized_university&quot;</span><span class="p">:</span> <span class="n">std_uni</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="_normalize_input">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._normalize_input">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_input</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize accepted request payload formats into a row list.</span>
+
+<span class="sd">    :param payload: Raw request/CLI payload.</span>
+<span class="sd">    :type payload: Any</span>
+<span class="sd">    :returns: List of row dictionaries.</span>
+<span class="sd">    :rtype: list[dict[str, Any]]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">payload</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rows&quot;</span><span class="p">),</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;rows&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[]</span></div>
+
+
+
+<div class="viewcode-block" id="health">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app.health">[docs]</a>
+<span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">health</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return service health status.</span>
+
+<span class="sd">    :returns: JSON response containing ``{\&quot;ok\&quot;: True}``.</span>
+<span class="sd">    :rtype: flask.Response</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="standardize">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app.standardize">[docs]</a>
+<span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/standardize&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">standardize</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Standardize request rows and return enriched payloads.</span>
+
+<span class="sd">    :returns: JSON response containing standardized rows.</span>
+<span class="sd">    :rtype: flask.Response</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">get_json</span><span class="p">(</span><span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">_normalize_input</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+    <span class="n">out</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+        <span class="n">program_text</span> <span class="o">=</span> <span class="p">(</span><span class="n">row</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;program&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">school_text</span> <span class="o">=</span> <span class="p">(</span><span class="n">row</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;university&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">_call_llm</span><span class="p">(</span><span class="n">program_text</span><span class="p">,</span> <span class="n">school_text</span><span class="p">)</span>
+        <span class="n">row</span><span class="p">[</span><span class="s2">&quot;llm-generated-program&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;standardized_program&quot;</span><span class="p">]</span>
+        <span class="n">row</span><span class="p">[</span><span class="s2">&quot;llm-generated-university&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;standardized_university&quot;</span><span class="p">]</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;rows&quot;</span><span class="p">:</span> <span class="n">out</span><span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="_cli_process_file">
+<a class="viewcode-back" href="../../api_llm_hosting.html#llm_hosting.app._cli_process_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_cli_process_file</span><span class="p">(</span>
+    <span class="n">in_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">out_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">append</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">to_stdout</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Process input JSON rows and emit JSONL output incrementally.</span>
+
+<span class="sd">    :param in_path: Input JSON path.</span>
+<span class="sd">    :type in_path: str</span>
+<span class="sd">    :param out_path: Destination JSONL path when not writing to stdout.</span>
+<span class="sd">    :type out_path: str | None</span>
+<span class="sd">    :param append: Whether to append to output file.</span>
+<span class="sd">    :type append: bool</span>
+<span class="sd">    :param to_stdout: Whether to write JSONL lines to stdout.</span>
+<span class="sd">    :type to_stdout: bool</span>
+<span class="sd">    :returns: ``None``.</span>
+<span class="sd">    :rtype: None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">safe_in_path</span> <span class="o">=</span> <span class="n">_resolve_cli_path</span><span class="p">(</span><span class="n">in_path</span><span class="p">,</span> <span class="n">must_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">safe_in_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">_normalize_input</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">to_stdout</span><span class="p">:</span>
+        <span class="n">sink_cm</span> <span class="o">=</span> <span class="n">nullcontext</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">out_path</span> <span class="o">=</span> <span class="n">out_path</span> <span class="ow">or</span> <span class="s2">&quot;llm_extend_applicant_data.jsonl&quot;</span>
+        <span class="n">safe_out_path</span> <span class="o">=</span> <span class="n">_resolve_cli_path</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="n">must_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;a&quot;</span> <span class="k">if</span> <span class="n">append</span> <span class="k">else</span> <span class="s2">&quot;w&quot;</span>
+        <span class="n">sink_cm</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">safe_out_path</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">sink_cm</span> <span class="k">as</span> <span class="n">sink</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="n">program_text</span> <span class="o">=</span> <span class="p">(</span><span class="n">row</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;program&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">school_text</span> <span class="o">=</span> <span class="p">(</span><span class="n">row</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;university&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">_call_llm</span><span class="p">(</span><span class="n">program_text</span><span class="p">,</span> <span class="n">school_text</span><span class="p">)</span>
+            <span class="n">row</span><span class="p">[</span><span class="s2">&quot;llm-generated-program&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;standardized_program&quot;</span><span class="p">]</span>
+            <span class="n">row</span><span class="p">[</span><span class="s2">&quot;llm-generated-university&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;standardized_university&quot;</span><span class="p">]</span>
+
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">sink</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">sink</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Standardize program/university with a tiny local LLM.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--file&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to JSON input (list of rows or {&#39;rows&#39;: [...]})&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--serve&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Run the HTTP server instead of CLI.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--out&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output path for JSON Lines (ndjson). &quot;</span>
+        <span class="s2">&quot;Defaults to &lt;input&gt;.jsonl when --file is set.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--append&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Append to the output file instead of overwriting.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--stdout&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Write JSON Lines to stdout instead of a file.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">serve</span> <span class="ow">or</span> <span class="n">args</span><span class="o">.</span><span class="n">file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;PORT&quot;</span><span class="p">,</span> <span class="s2">&quot;8000&quot;</span><span class="p">))</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_cli_process_file</span><span class="p">(</span>
+            <span class="n">in_path</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">file</span><span class="p">,</span>
+            <span class="n">out_path</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">,</span>
+            <span class="n">append</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">),</span>
+            <span class="n">to_stdout</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">stdout</span><span class="p">),</span>
+        <span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">JHU Software Concepts - Module 5</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../setup.html">Setup &amp; Run Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../operational_notes.html">Operational Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Max M. McKie.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

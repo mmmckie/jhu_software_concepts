@@ -17,7 +17,7 @@ This is enforced at collection time by ``tests/conftest.py``.
 Run test groups
 ---------------
 
-From ``jhu_software_concepts/module_4``:
+From ``jhu_software_concepts/module_5``:
 
 .. code-block:: bash
 

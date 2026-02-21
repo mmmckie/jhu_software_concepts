@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>query_data &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <title>query_data &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
@@ -14,7 +14,7 @@
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="run" href="api_run.html" />
+    <link rel="next" title="db_config" href="api_db_config.html" />
     <link rel="prev" title="load_data" href="api_load_data.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -37,31 +37,129 @@
 <span id="query-data"></span><h1>query_data<a class="headerlink" href="#module-query_data" title="Link to this heading">¶</a></h1>
 <p>Analytical query layer for admissions reporting metrics.</p>
 <dl class="py function">
+<dt class="sig sig-object py" id="query_data._s">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_s</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_s"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._s" title="Link to this definition">¶</a></dt>
+<dd><p>Build a composable SQL statement from module-owned static SQL text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>query_text</strong> (<em>str</em>) – Static SQL source text defined in this module.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Composable SQL object ready for psycopg execution.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>psycopg.sql.Composable</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._clamp_limit">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_clamp_limit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_clamp_limit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._clamp_limit" title="Link to this definition">¶</a></dt>
+<dd><p>Clamp a requested row limit to a safe bounded range.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>limit</strong> (<em>int</em>) – Requested row limit.</p></li>
+<li><p><strong>minimum</strong> (<em>int</em>) – Minimum allowed limit value.</p></li>
+<li><p><strong>maximum</strong> (<em>int</em>) – Maximum allowed limit value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Clamped limit within <code class="docutils literal notranslate"><span class="pre">[minimum,</span> <span class="pre">maximum]</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._compose_limited_query">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_compose_limited_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_compose_limited_query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._compose_limited_query" title="Link to this definition">¶</a></dt>
+<dd><p>Build a LIMIT-capped SQL statement around an arbitrary base query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query</strong> (<em>psycopg.sql.Composable</em>) – Base composable SQL statement.</p></li>
+<li><p><strong>limit</strong> (<em>int</em>) – Requested row limit.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple of composed statement and clamped limit value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[psycopg.sql.Composable, int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._query_scalar">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_query_scalar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_query_scalar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._query_scalar" title="Link to this definition">¶</a></dt>
+<dd><p>Return the first scalar value from a SQL query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>query</strong> (<em>psycopg.sql.Composable</em>) – Query expected to return at least one scalar cell.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>First scalar value from the query result.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._build_overview_metrics">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_build_overview_metrics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_build_overview_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._build_overview_metrics" title="Link to this definition">¶</a></dt>
+<dd><p>Build top-level overview metrics used by the dashboard.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._build_academic_metrics">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_build_academic_metrics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_build_academic_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._build_academic_metrics" title="Link to this definition">¶</a></dt>
+<dd><p>Build average-score and acceptance-rate metrics.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._build_program_metrics">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_build_program_metrics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_build_program_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._build_program_metrics" title="Link to this definition">¶</a></dt>
+<dd><p>Build targeted program/university query metrics.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="query_data._build_additional_metrics">
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">_build_additional_metrics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#_build_additional_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data._build_additional_metrics" title="Link to this definition">¶</a></dt>
+<dd><p>Build term comparison and GPA-reporting acceptance metrics.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="query_data.run_analysis">
 <span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">run_analysis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#run_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data.run_analysis" title="Link to this definition">¶</a></dt>
 <dd><p>Compute all dashboard metrics from the admissions table.</p>
-<p>The function executes a sequence of SQL queries and aggregates answers into
-a dictionary consumed by the Flask analysis page and API.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Analysis results keyed by metric name.</p>
+<dd class="field-odd"><p>Aggregated analysis payload for UI/API responses.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>dict[str, object]</p>
-</dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>RuntimeError</strong> – If any individual query fails through <code class="docutils literal notranslate"><span class="pre">execute_query</span></code>.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="query_data.execute_query">
-<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">execute_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#execute_query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data.execute_query" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">query_data.</span></span><span class="sig-name descname"><span class="pre">execute_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/query_data.html#execute_query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#query_data.execute_query" title="Link to this definition">¶</a></dt>
 <dd><p>Execute a SQL query and return all result rows.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>query</strong> (<em>str</em>) – SQL query text to execute.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query</strong> (<em>psycopg.sql.Composable</em>) – SQL query composable to execute.</p></li>
+<li><p><strong>params</strong> (<em>list</em><em> | </em><em>tuple</em><em> | </em><em>None</em>) – Optional SQL parameter values for placeholders in <code class="docutils literal notranslate"><span class="pre">query</span></code>.</p></li>
+<li><p><strong>limit</strong> (<em>int</em>) – Maximum number of rows to return, clamped to [1, 100].</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>List of row tuples fetched from PostgreSQL.</p>
@@ -84,7 +182,7 @@ a dictionary consumed by the Flask analysis page and API.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 4</a></h1>
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 5</a></h1>
 
 
 
@@ -105,17 +203,24 @@ a dictionary consumed by the Flask analysis page and API.</p>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operational_notes.html">Operational Notes</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">API Reference</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_scrape.html">scrape</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_clean.html">clean</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_load_data.html">load_data</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">query_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_db_config.html">db_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_llm_hosting.html">llm_hosting.app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html">Flask Routes (board.pages)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_run.html">run</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_board.html">board package</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
 </ul>
 
 <div class="relations">
@@ -124,7 +229,7 @@ a dictionary consumed by the Flask analysis page and API.</p>
   <li><a href="index.html">Documentation overview</a><ul>
   <li><a href="modules.html">API Reference</a><ul>
       <li>Previous: <a href="api_load_data.html" title="previous chapter">load_data</a></li>
-      <li>Next: <a href="api_run.html" title="next chapter">run</a></li>
+      <li>Next: <a href="api_db_config.html" title="next chapter">db_config</a></li>
   </ul></li>
   </ul></li>
 </ul>

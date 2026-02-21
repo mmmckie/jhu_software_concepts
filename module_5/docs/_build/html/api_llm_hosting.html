@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>llm_hosting.app &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Flask Routes (board.pages)" href="api_flask_routes.html" />
+    <link rel="prev" title="db_config" href="api_db_config.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-llm_hosting.app">
+<span id="llm-hosting-app"></span><h1>llm_hosting.app<a class="headerlink" href="#module-llm_hosting.app" title="Link to this heading">¶</a></h1>
+<p>Flask + tiny local LLM standardizer with incremental JSONL CLI output.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._resolve_cli_path">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_resolve_cli_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_path</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">must_exist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_resolve_cli_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._resolve_cli_path" title="Link to this definition">¶</a></dt>
+<dd><p>Resolve a CLI path to a sanitized filename under <code class="docutils literal notranslate"><span class="pre">src</span></code>.</p>
+<p>Directory components provided by users are ignored; only a safe basename is used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>raw_path</strong> (<em>str</em>) – User-provided input/output path argument.</p></li>
+<li><p><strong>must_exist</strong> (<em>bool</em>) – Whether the resolved path must already exist.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sanitized and resolved path under the allowed CLI root.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pathlib.Path</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – If the provided name is invalid.</p></li>
+<li><p><strong>FileNotFoundError</strong> – If <code class="docutils literal notranslate"><span class="pre">must_exist</span></code> is true and the file is absent.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._read_lines">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_read_lines</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_read_lines"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._read_lines" title="Link to this definition">¶</a></dt>
+<dd><p>Read non-empty UTF-8 lines from a text file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – File path to read.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Stripped non-empty lines, or empty list if file missing.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._load_llm">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_load_llm</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_load_llm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._load_llm" title="Link to this definition">¶</a></dt>
+<dd><p>Load and memoize the local llama.cpp model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Initialized llama.cpp model instance.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>llama_cpp.Llama</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._split_fallback">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_split_fallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_split_fallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._split_fallback" title="Link to this definition">¶</a></dt>
+<dd><p>Parse program/university with heuristics when model output is invalid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> (<em>str</em>) – Raw text to parse.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(program,</span> <span class="pre">university)</span></code> tuple.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[str, str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._best_match">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_best_match</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.86</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_best_match"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._best_match" title="Link to this definition">¶</a></dt>
+<dd><p>Return best fuzzy match from candidate list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Input string to match.</p></li>
+<li><p><strong>candidates</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – Candidate canonical strings.</p></li>
+<li><p><strong>cutoff</strong> (<em>float</em>) – Similarity threshold in <code class="docutils literal notranslate"><span class="pre">[0.0,</span> <span class="pre">1.0]</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Best candidate or <code class="docutils literal notranslate"><span class="pre">None</span></code> if no match meets cutoff.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._post_normalize_program">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_post_normalize_program</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prog</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_post_normalize_program"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._post_normalize_program" title="Link to this definition">¶</a></dt>
+<dd><p>Normalize a program string to canonical output format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>prog</strong> (<em>str</em>) – Raw or model-generated program text.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Canonicalized program name.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._post_normalize_university">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_post_normalize_university</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uni</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_post_normalize_university"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._post_normalize_university" title="Link to this definition">¶</a></dt>
+<dd><p>Normalize a university string to canonical output format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>uni</strong> (<em>str</em>) – Raw or model-generated university text.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Canonicalized university name, or <code class="docutils literal notranslate"><span class="pre">&quot;Unknown&quot;</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._call_llm">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_call_llm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">program_text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">school_text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_call_llm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._call_llm" title="Link to this definition">¶</a></dt>
+<dd><p>Call the model and return standardized fields.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>program_text</strong> (<em>str</em>) – Program value from input row.</p></li>
+<li><p><strong>school_text</strong> (<em>str</em>) – University value from input row.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Standardized program and university.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[str, str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._normalize_input">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_normalize_input</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">payload</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_normalize_input"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._normalize_input" title="Link to this definition">¶</a></dt>
+<dd><p>Normalize accepted request payload formats into a row list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>payload</strong> (<em>Any</em>) – Raw request/CLI payload.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of row dictionaries.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[dict[str, Any]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app.health">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">health</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#health"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app.health" title="Link to this definition">¶</a></dt>
+<dd><p>Return service health status.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>JSON response containing <code class="docutils literal notranslate"><span class="pre">{&quot;ok&quot;:</span> <span class="pre">True}</span></code>.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>flask.Response</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app.standardize">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">standardize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#standardize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app.standardize" title="Link to this definition">¶</a></dt>
+<dd><p>Standardize request rows and return enriched payloads.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>JSON response containing standardized rows.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>flask.Response</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="llm_hosting.app._cli_process_file">
+<span class="sig-prename descclassname"><span class="pre">llm_hosting.app.</span></span><span class="sig-name descname"><span class="pre">_cli_process_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">append</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_stdout</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/llm_hosting/app.html#_cli_process_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#llm_hosting.app._cli_process_file" title="Link to this definition">¶</a></dt>
+<dd><p>Process input JSON rows and emit JSONL output incrementally.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>in_path</strong> (<em>str</em>) – Input JSON path.</p></li>
+<li><p><strong>out_path</strong> (<em>str</em><em> | </em><em>None</em>) – Destination JSONL path when not writing to stdout.</p></li>
+<li><p><strong>append</strong> (<em>bool</em>) – Whether to append to output file.</p></li>
+<li><p><strong>to_stdout</strong> (<em>bool</em>) – Whether to write JSONL lines to stdout.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 5</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operational_notes.html">Operational Notes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="api_scrape.html">scrape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_clean.html">clean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_load_data.html">load_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_query_data.html">query_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_db_config.html">db_config</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">llm_hosting.app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html">Flask Routes (board.pages)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_run.html">run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_board.html">board package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">API Reference</a><ul>
+      <li>Previous: <a href="api_db_config.html" title="previous chapter">db_config</a></li>
+      <li>Next: <a href="api_flask_routes.html" title="next chapter">Flask Routes (board.pages)</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Max M. McKie.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/api_llm_hosting.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

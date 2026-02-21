@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>load_data &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <title>load_data &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
@@ -36,6 +36,27 @@
   <section id="module-load_data">
 <span id="load-data"></span><h1>load_data<a class="headerlink" href="#module-load_data" title="Link to this heading">¶</a></h1>
 <p>PostgreSQL load helpers for admissions JSONL data.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="load_data._clamp_limit">
+<span class="sig-prename descclassname"><span class="pre">load_data.</span></span><span class="sig-name descname"><span class="pre">_clamp_limit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/load_data.html#_clamp_limit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#load_data._clamp_limit" title="Link to this definition">¶</a></dt>
+<dd><p>Clamp a requested row limit to a safe bounded range.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>limit</strong> (<em>int</em>) – Requested row limit.</p></li>
+<li><p><strong>minimum</strong> (<em>int</em>) – Minimum allowed limit value.</p></li>
+<li><p><strong>maximum</strong> (<em>int</em>) – Maximum allowed limit value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Clamped limit within <code class="docutils literal notranslate"><span class="pre">[minimum,</span> <span class="pre">maximum]</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="load_data.create_db_if_not_exists">
 <span class="sig-prename descclassname"><span class="pre">load_data.</span></span><span class="sig-name descname"><span class="pre">create_db_if_not_exists</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/load_data.html#create_db_if_not_exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#load_data.create_db_if_not_exists" title="Link to this definition">¶</a></dt>
@@ -70,6 +91,7 @@ managed externally and this function exits immediately.</p>
 <dt class="sig sig-object py" id="load_data.get_existing_urls">
 <span class="sig-prename descclassname"><span class="pre">load_data.</span></span><span class="sig-name descname"><span class="pre">get_existing_urls</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/load_data.html#get_existing_urls"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#load_data.get_existing_urls" title="Link to this definition">¶</a></dt>
 <dd><p>Fetch all existing admissions URLs currently stored in PostgreSQL.</p>
+<p>Reads rows in bounded pages to avoid unbounded result fetches.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Set of unique URL strings, or empty set on connection/query error.</p>
@@ -98,12 +120,37 @@ managed externally and this function exits immediately.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="load_data._admissions_table_exists">
+<span class="sig-prename descclassname"><span class="pre">load_data.</span></span><span class="sig-name descname"><span class="pre">_admissions_table_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cur</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/load_data.html#_admissions_table_exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#load_data._admissions_table_exists" title="Link to this definition">¶</a></dt>
+<dd><p>Return whether <code class="docutils literal notranslate"><span class="pre">public.admissions</span></code> is present in the target DB.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cur</strong> (<em>psycopg.Cursor</em>) – Active psycopg cursor.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> when the admissions table exists.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="load_data._provision_admissions_schema">
+<span class="sig-prename descclassname"><span class="pre">load_data.</span></span><span class="sig-name descname"><span class="pre">_provision_admissions_schema</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/load_data.html#_provision_admissions_schema"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#load_data._provision_admissions_schema" title="Link to this definition">¶</a></dt>
+<dd><p>Create admissions table/index with admin credentials when missing.</p>
+<p>This keeps app-role ingestion least-privilege: regular writes do not need
+CREATE rights on schema <code class="docutils literal notranslate"><span class="pre">public</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="load_data.stream_jsonl_to_postgres">
 <span class="sig-prename descclassname"><span class="pre">load_data.</span></span><span class="sig-name descname"><span class="pre">stream_jsonl_to_postgres</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/load_data.html#stream_jsonl_to_postgres"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#load_data.stream_jsonl_to_postgres" title="Link to this definition">¶</a></dt>
 <dd><p>Stream JSONL records into PostgreSQL admissions table.</p>
-<p>The function creates the target table/index when needed, inserts rows with
-<code class="docutils literal notranslate"><span class="pre">ON</span> <span class="pre">CONFLICT</span> <span class="pre">(url)</span> <span class="pre">DO</span> <span class="pre">NOTHING</span></code>, and commits once all valid records are
-processed.</p>
+<p>The function ensures the admissions schema exists (using admin credentials
+only when missing), inserts rows with <code class="docutils literal notranslate"><span class="pre">ON</span> <span class="pre">CONFLICT</span> <span class="pre">(url)</span> <span class="pre">DO</span> <span class="pre">NOTHING</span></code>, and
+commits once all valid records are processed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>filepath</strong> (<em>str</em>) – Path to line-delimited JSON records.</p>
@@ -129,7 +176,7 @@ processed.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 4</a></h1>
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 5</a></h1>
 
 
 
@@ -150,17 +197,24 @@ processed.</p>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operational_notes.html">Operational Notes</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">API Reference</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_scrape.html">scrape</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_clean.html">clean</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">load_data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_query_data.html">query_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_db_config.html">db_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_llm_hosting.html">llm_hosting.app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html">Flask Routes (board.pages)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_run.html">run</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_board.html">board package</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
 </ul>
 
 <div class="relations">

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Operational Notes &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="modules.html" />
+    <link rel="prev" title="Architecture" href="architecture.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="operational-notes">
+<h1>Operational Notes<a class="headerlink" href="#operational-notes" title="Link to this heading">¶</a></h1>
+<section id="busy-state-policy">
+<h2>Busy-state policy<a class="headerlink" href="#busy-state-policy" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/pull</span></code> and <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/pull-data</span></code> set a shared in-progress flag while pull/load work is running.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/update</span></code> and <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/update-analysis</span></code> are blocked during that window.</p></li>
+<li><p>API callers receive <code class="docutils literal notranslate"><span class="pre">409</span></code> with <code class="docutils literal notranslate"><span class="pre">{&quot;busy&quot;:</span> <span class="pre">true,</span> <span class="pre">&quot;ok&quot;:</span> <span class="pre">false}</span></code> when gated.</p></li>
+<li><p>Browser callers are redirected/rendered with a user-facing message instead of JSON.</p></li>
+</ul>
+</section>
+<section id="idempotency-strategy">
+<h2>Idempotency strategy<a class="headerlink" href="#idempotency-strategy" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Pull operations may be retried safely.</p></li>
+<li><p>Duplicate source rows are tolerated by database-level conflict handling.</p></li>
+<li><p>The load path uses <code class="docutils literal notranslate"><span class="pre">ON</span> <span class="pre">CONFLICT</span> <span class="pre">(url)</span> <span class="pre">DO</span> <span class="pre">NOTHING</span></code> for inserts.</p></li>
+</ul>
+</section>
+<section id="uniqueness-keys">
+<h2>Uniqueness keys<a class="headerlink" href="#uniqueness-keys" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>The canonical uniqueness key is <code class="docutils literal notranslate"><span class="pre">admissions.url</span></code>.</p></li>
+<li><p>A unique index is maintained on <code class="docutils literal notranslate"><span class="pre">url</span></code> to prevent duplicate records.</p></li>
+<li><p>Incremental pulls can reuse existing URLs and max result-page values to reduce reprocessing.</p></li>
+</ul>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">psycopg.OperationalError</span></code> on startup: verify PostgreSQL is running and <code class="docutils literal notranslate"><span class="pre">DATABASE_URL</span></code> is correct.</p></li>
+<li><p>Empty page metrics after pull: confirm loader wrote rows and <code class="docutils literal notranslate"><span class="pre">/update-analysis</span></code> completed without <code class="docutils literal notranslate"><span class="pre">409</span> <span class="pre">busy</span></code>.</p></li>
+<li><p>Marker-related collection failures: ensure every test has at least one allowed marker in <code class="docutils literal notranslate"><span class="pre">pytest.ini</span></code>.</p></li>
+<li><p>CI-only failures: check service Postgres health/readiness and environment variables in workflow config.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 5</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Operational Notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#busy-state-policy">Busy-state policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#idempotency-strategy">Idempotency strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#uniqueness-keys">Uniqueness keys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="architecture.html" title="previous chapter">Architecture</a></li>
+      <li>Next: <a href="modules.html" title="next chapter">API Reference</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Max M. McKie.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/operational_notes.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

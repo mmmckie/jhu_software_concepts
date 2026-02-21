@@ -17,7 +17,17 @@ MAX_QUERY_LIMIT = 100
 
 
 def _clamp_limit(limit, minimum=1, maximum=MAX_QUERY_LIMIT):
-    """Clamp a requested row limit to a safe bounded range."""
+    """Clamp a requested row limit to a safe bounded range.
+
+    :param limit: Requested row limit.
+    :type limit: int
+    :param minimum: Minimum allowed limit value.
+    :type minimum: int
+    :param maximum: Maximum allowed limit value.
+    :type maximum: int
+    :returns: Clamped limit within ``[minimum, maximum]``.
+    :rtype: int
+    """
     value = int(limit)
     return max(minimum, min(value, maximum))
 
@@ -69,6 +79,8 @@ def get_max_result_page():
 def get_existing_urls():
     """Fetch all existing admissions URLs currently stored in PostgreSQL.
 
+    Reads rows in bounded pages to avoid unbounded result fetches.
+
     :returns: Set of unique URL strings, or empty set on connection/query error.
     :rtype: set[str]
     """
@@ -118,7 +130,13 @@ def format_date(date_str):
 
 
 def _admissions_table_exists(cur):
-    """Return whether ``public.admissions`` is present in the target DB."""
+    """Return whether ``public.admissions`` is present in the target DB.
+
+    :param cur: Active psycopg cursor.
+    :type cur: psycopg.Cursor
+    :returns: ``True`` when the admissions table exists.
+    :rtype: bool
+    """
     cur.execute("SELECT to_regclass('public.admissions');")
     row = cur.fetchone()
     return bool(row and row[0])

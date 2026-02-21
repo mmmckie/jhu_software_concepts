@@ -8,7 +8,7 @@ SRC_ROOT = os.path.join(PROJECT_ROOT, 'src')
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
-project = 'JHU Software Concepts - Module 4'
+project = 'JHU Software Concepts - Module 5'
 author = 'Max M. McKie'
 copyright = f"{datetime.now().year}, {author}"
 release = '1.0.0'
@@ -27,6 +27,8 @@ autodoc_typehints = 'description'
 autodoc_mock_imports = [
     "psycopg",
     "bs4",
+    "llama_cpp",
+    "huggingface_hub",
 ]
 autodoc_default_options = {
     "members": True,

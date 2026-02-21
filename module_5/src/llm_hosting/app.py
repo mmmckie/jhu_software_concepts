@@ -26,6 +26,15 @@ def _resolve_cli_path(raw_path: str, *, must_exist: bool) -> Path:
     """Resolve a CLI path to a sanitized filename under ``src``.
 
     Directory components provided by users are ignored; only a safe basename is used.
+
+    :param raw_path: User-provided input/output path argument.
+    :type raw_path: str
+    :param must_exist: Whether the resolved path must already exist.
+    :type must_exist: bool
+    :returns: Sanitized and resolved path under the allowed CLI root.
+    :rtype: pathlib.Path
+    :raises ValueError: If the provided name is invalid.
+    :raises FileNotFoundError: If ``must_exist`` is true and the file is absent.
     """
     name = Path(raw_path).name
     if not name or name in {".", ".."}:

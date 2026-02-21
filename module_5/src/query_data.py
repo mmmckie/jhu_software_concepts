@@ -14,20 +14,44 @@ MAX_QUERY_LIMIT = 100
 
 
 def _s(query_text: str) -> sql.Composable:
-    """Build a composable SQL statement from module-owned static SQL text."""
+    """Build a composable SQL statement from module-owned static SQL text.
+
+    :param query_text: Static SQL source text defined in this module.
+    :type query_text: str
+    :returns: Composable SQL object ready for psycopg execution.
+    :rtype: psycopg.sql.Composable
+    """
     # psycopg treats `%` as placeholder syntax when execute() has params.
     # Escape literal `%` used in LIKE/ILIKE patterns.
     return sql.SQL(query_text.strip().rstrip(';').replace('%', '%%'))
 
 
 def _clamp_limit(limit, minimum=1, maximum=MAX_QUERY_LIMIT):
-    """Clamp a requested row limit to a safe bounded range."""
+    """Clamp a requested row limit to a safe bounded range.
+
+    :param limit: Requested row limit.
+    :type limit: int
+    :param minimum: Minimum allowed limit value.
+    :type minimum: int
+    :param maximum: Maximum allowed limit value.
+    :type maximum: int
+    :returns: Clamped limit within ``[minimum, maximum]``.
+    :rtype: int
+    """
     value = int(limit)
     return max(minimum, min(value, maximum))
 
 
 def _compose_limited_query(query, limit):
-    """Build a LIMIT-capped SQL statement around an arbitrary base query."""
+    """Build a LIMIT-capped SQL statement around an arbitrary base query.
+
+    :param query: Base composable SQL statement.
+    :type query: psycopg.sql.Composable
+    :param limit: Requested row limit.
+    :type limit: int
+    :returns: Tuple of composed statement and clamped limit value.
+    :rtype: tuple[psycopg.sql.Composable, int]
+    """
     safe_limit = _clamp_limit(limit)
     stmt = sql.SQL(
         "SELECT * FROM ({base_query}) AS analysis_query LIMIT {limit_value}"
@@ -39,7 +63,13 @@ def _compose_limited_query(query, limit):
 
 
 def _query_scalar(query):
-    """Return the first scalar value from a SQL query."""
+    """Return the first scalar value from a SQL query.
+
+    :param query: Query expected to return at least one scalar cell.
+    :type query: psycopg.sql.Composable
+    :returns: First scalar value from the query result.
+    :rtype: object
+    """
     return execute_query(query)[0][0]
 
 
@@ -311,7 +341,11 @@ def _build_additional_metrics():
 
 
 def run_analysis():
-    """Compute all dashboard metrics from the admissions table."""
+    """Compute all dashboard metrics from the admissions table.
+
+    :returns: Aggregated analysis payload for UI/API responses.
+    :rtype: dict[str, object]
+    """
     analysis = {}
     analysis.update(_build_overview_metrics())
     analysis.update(_build_academic_metrics())

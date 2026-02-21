@@ -1,7 +1,7 @@
 Overview
 ========
 
-``module_4`` provides:
+``module_5`` provides:
 
 - A Flask web interface for analysis and pull/update workflows.
 - Scraping and cleaning utilities for admissions records.

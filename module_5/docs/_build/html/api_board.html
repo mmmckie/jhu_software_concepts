@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>board package &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <title>board package &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
@@ -14,6 +14,7 @@
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Testing Guide" href="testing.html" />
     <link rel="prev" title="run" href="api_run.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -63,6 +64,40 @@
 <span id="board-pages"></span><h2>board.pages<a class="headerlink" href="#module-board.pages" title="Link to this heading">¶</a></h2>
 <p>Route handlers for the analysis dashboard and pull/update actions.</p>
 <dl class="py function">
+<dt class="sig sig-object py" id="board.pages._state_get">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_state_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_state_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._state_get" title="Link to this definition">¶</a></dt>
+<dd><p>Read one shared pull/bootstrap state value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – Logical state key from <code class="docutils literal notranslate"><span class="pre">_STATE_KEY_MAP</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Current value stored for the requested state key.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._state_set">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_state_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_state_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._state_set" title="Link to this definition">¶</a></dt>
+<dd><p>Update one or more shared pull/bootstrap state values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>kwargs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>object</em><em>]</em>) – Mapping of logical keys to new values.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="board.pages._is_api_route">
 <span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_is_api_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_is_api_route"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._is_api_route" title="Link to this definition">¶</a></dt>
 <dd><p>Check whether the current request targets JSON API endpoints.</p>
@@ -102,6 +137,24 @@
 <dd class="field-even"><p>dict</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._bootstrap_jsonl_path">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_bootstrap_jsonl_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_bootstrap_jsonl_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._bootstrap_jsonl_path" title="Link to this definition">¶</a></dt>
+<dd><p>Return canonical JSONL path used for first-time DB table/bootstrap load.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._is_missing_admissions_table_error">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_is_missing_admissions_table_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exc</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_is_missing_admissions_table_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._is_missing_admissions_table_error" title="Link to this definition">¶</a></dt>
+<dd><p>Return True when the error indicates the admissions table is missing.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="board.pages._start_bootstrap_worker">
+<span class="sig-prename descclassname"><span class="pre">board.pages.</span></span><span class="sig-name descname"><span class="pre">_start_bootstrap_worker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/board/pages.html#_start_bootstrap_worker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.pages._start_bootstrap_worker" title="Link to this definition">¶</a></dt>
+<dd><p>Start background table/bootstrap load once for fresh databases.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -177,7 +230,7 @@ render template responses; API requests return JSON statuses.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 4</a></h1>
+<h1 class="logo"><a href="index.html">JHU Software Concepts - Module 5</a></h1>
 
 
 
@@ -198,17 +251,24 @@ render template responses; API requests return JSON statuses.</p>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup &amp; Run Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="operational_notes.html">Operational Notes</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">API Reference</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_scrape.html">scrape</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_clean.html">clean</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_load_data.html">load_data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_query_data.html">query_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_db_config.html">db_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_llm_hosting.html">llm_hosting.app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_flask_routes.html">Flask Routes (board.pages)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_main.html">main</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_run.html">run</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">board package</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Testing Guide</a></li>
 </ul>
 
 <div class="relations">
@@ -217,6 +277,7 @@ render template responses; API requests return JSON statuses.</p>
   <li><a href="index.html">Documentation overview</a><ul>
   <li><a href="modules.html">API Reference</a><ul>
       <li>Previous: <a href="api_run.html" title="previous chapter">run</a></li>
+      <li>Next: <a href="testing.html" title="next chapter">Testing Guide</a></li>
   </ul></li>
   </ul></li>
 </ul>

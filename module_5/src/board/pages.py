@@ -38,11 +38,25 @@ _STATE_KEY_MAP = {
 
 
 def _state_get(key):
+    """Read one shared pull/bootstrap state value.
+
+    :param key: Logical state key from ``_STATE_KEY_MAP``.
+    :type key: str
+    :returns: Current value stored for the requested state key.
+    :rtype: object
+    """
     with _PULL_LOCK:
         return globals()[_STATE_KEY_MAP[key]]
 
 
 def _state_set(**kwargs):
+    """Update one or more shared pull/bootstrap state values.
+
+    :param kwargs: Mapping of logical keys to new values.
+    :type kwargs: dict[str, object]
+    :returns: ``None``.
+    :rtype: None
+    """
     with _PULL_LOCK:
         for key, value in kwargs.items():
             globals()[_STATE_KEY_MAP[key]] = value
@@ -97,6 +111,11 @@ def _start_bootstrap_worker():
         return
 
     def _worker():
+        """Run initial admissions bootstrap and persist one-shot error state.
+
+        :returns: ``None``.
+        :rtype: None
+        """
         try:
             stream_jsonl_to_postgres(str(_bootstrap_jsonl_path()))
         except (RuntimeError, ValueError, OSError, TypeError) as exc:

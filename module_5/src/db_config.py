@@ -8,6 +8,11 @@ def _load_env_file(path: Path) -> None:
     """Load KEY=VALUE pairs from a .env-style file into os.environ.
 
     Existing environment variables are preserved.
+
+    :param path: Filesystem path to the ``.env``-style file.
+    :type path: pathlib.Path
+    :returns: ``None``.
+    :rtype: None
     """
     if not path.exists():
         return
@@ -23,7 +28,11 @@ def _load_env_file(path: Path) -> None:
 
 
 def _autoload_env() -> None:
-    """Load local .env defaults when variables were not pre-exported."""
+    """Load local .env defaults when variables were not pre-exported.
+
+    :returns: ``None``.
+    :rtype: None
+    """
     src_dir = Path(__file__).resolve().parent
     env_candidates = (
         src_dir.parent.parent / ".env",  # jhu_software_concepts/.env
@@ -43,6 +52,21 @@ def _build_conn_info(
     user: str | None,
     password: str | None,
 ) -> str:
+    """Compose a psycopg connection-info string from discrete settings.
+
+    :param host: Database host name.
+    :type host: str
+    :param port: Database port.
+    :type port: str
+    :param dbname: Database name.
+    :type dbname: str
+    :param user: Optional login role/user.
+    :type user: str | None
+    :param password: Optional login password.
+    :type password: str | None
+    :returns: Space-delimited connection info string for psycopg.
+    :rtype: str
+    """
     parts = [
         f"host={host}",
         f"port={port}",
@@ -56,7 +80,11 @@ def _build_conn_info(
 
 
 def get_db_name() -> str:
-    """Return target application database name from environment."""
+    """Return target application database name from environment.
+
+    :returns: Configured application database name.
+    :rtype: str
+    """
     return os.getenv("DB_NAME", "grad_data")
 
 
@@ -65,6 +93,9 @@ def get_db_conn_info() -> str:
 
     Uses ``DATABASE_URL`` when present for compatibility, otherwise composes a
     connection string from ``DB_*`` variables.
+
+    :returns: Connection info for the app role.
+    :rtype: str
     """
     database_url = os.getenv("DATABASE_URL")
     if database_url:
@@ -79,7 +110,11 @@ def get_db_conn_info() -> str:
 
 
 def get_admin_conn_info() -> str:
-    """Return admin connection info for provisioning the database."""
+    """Return admin connection info for provisioning the database.
+
+    :returns: Connection info for the admin/provisioning role.
+    :rtype: str
+    """
     admin_url = os.getenv("DATABASE_ADMIN_URL")
     if admin_url:  # pragma: no cover - optional DSN override branch
         return admin_url

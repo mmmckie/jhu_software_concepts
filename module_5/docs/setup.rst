@@ -6,12 +6,12 @@ Prerequisites
 
 - Python 3.12+
 - PostgreSQL running locally or reachable via connection URL
-- Dependencies installed from ``module_4/requirements.txt``
+- Dependencies installed from ``module_5/requirements.txt``
 
 Install
 -------
 
-From ``jhu_software_concepts/module_4``:
+From ``jhu_software_concepts/module_5``:
 
 .. code-block:: bash
 
@@ -53,7 +53,7 @@ Optional LLM-hosting variables (for ``src/llm_hosting/app.py``):
 Run the app
 -----------
 
-From ``jhu_software_concepts/module_4``:
+From ``jhu_software_concepts/module_5``:
 
 .. code-block:: bash
 
@@ -64,7 +64,7 @@ The Flask app listens on ``http://localhost:8080``.
 Run tests
 ---------
 
-From ``jhu_software_concepts/module_4``:
+From ``jhu_software_concepts/module_5``:
 
 .. code-block:: bash
 

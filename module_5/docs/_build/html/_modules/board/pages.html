@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>board.pages &#8212; JHU Software Concepts - Module 4 1.0.0 documentation</title>
+    <title>board.pages &#8212; JHU Software Concepts - Module 5 1.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
@@ -35,7 +35,9 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">flask</span><span class="w"> </span><span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">current_app</span><span class="p">,</span> <span class="n">jsonify</span><span class="p">,</span> <span class="n">redirect</span><span class="p">,</span> <span class="n">render_template</span><span class="p">,</span> <span class="n">request</span>
 
 <span class="n">bp</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s1">&#39;pages&#39;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
@@ -43,18 +45,64 @@
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">query_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_analysis</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">main</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_new_records</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">load_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">stream_jsonl_to_postgres</span>
 <span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">src.query_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_analysis</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">src.main</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_new_records</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">src.load_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">stream_jsonl_to_postgres</span>
 
+<span class="n">_PULL_LOCK</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+<span class="c1"># Shared state coordinates async pull requests across browser/API routes.</span>
 <span class="n">_PULL_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="n">_PULL_MESSAGE_PENDING</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="n">_PULL_LOCK</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 <span class="n">_PULL_ERROR_PENDING</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">_BOOTSTRAP_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">_BOOTSTRAP_MESSAGE_PENDING</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">_BOOTSTRAP_ERROR_PENDING</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">_STATE_KEY_MAP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;pull_in_progress&#39;</span><span class="p">:</span> <span class="s1">&#39;_PULL_IN_PROGRESS&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;pull_message_pending&#39;</span><span class="p">:</span> <span class="s1">&#39;_PULL_MESSAGE_PENDING&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;pull_error_pending&#39;</span><span class="p">:</span> <span class="s1">&#39;_PULL_ERROR_PENDING&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">:</span> <span class="s1">&#39;_BOOTSTRAP_IN_PROGRESS&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;bootstrap_message_pending&#39;</span><span class="p">:</span> <span class="s1">&#39;_BOOTSTRAP_MESSAGE_PENDING&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;bootstrap_error_pending&#39;</span><span class="p">:</span> <span class="s1">&#39;_BOOTSTRAP_ERROR_PENDING&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="_state_get">
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._state_get">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_state_get</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read one shared pull/bootstrap state value.</span>
+
+<span class="sd">    :param key: Logical state key from ``_STATE_KEY_MAP``.</span>
+<span class="sd">    :type key: str</span>
+<span class="sd">    :returns: Current value stored for the requested state key.</span>
+<span class="sd">    :rtype: object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">globals</span><span class="p">()[</span><span class="n">_STATE_KEY_MAP</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span></div>
+
+
+
+<div class="viewcode-block" id="_state_set">
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._state_set">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_state_set</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Update one or more shared pull/bootstrap state values.</span>
+
+<span class="sd">    :param kwargs: Mapping of logical keys to new values.</span>
+<span class="sd">    :type kwargs: dict[str, object]</span>
+<span class="sd">    :returns: ``None``.</span>
+<span class="sd">    :rtype: None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">globals</span><span class="p">()[</span><span class="n">_STATE_KEY_MAP</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span> <span class="o">=</span> <span class="n">value</span></div>
+
 
 
 <div class="viewcode-block" id="_is_api_route">
-<a class="viewcode-back" href="../../api_board.html#board.pages._is_api_route">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._is_api_route">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_is_api_route</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether the current request targets JSON API endpoints.</span>
 
@@ -66,7 +114,7 @@
 
 
 <div class="viewcode-block" id="_run_analysis_service">
-<a class="viewcode-back" href="../../api_board.html#board.pages._run_analysis_service">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._run_analysis_service">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_run_analysis_service</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve and execute the configured analysis function.</span>
 
@@ -79,7 +127,7 @@
 
 
 <div class="viewcode-block" id="_update_new_records_service">
-<a class="viewcode-back" href="../../api_board.html#board.pages._update_new_records_service">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._update_new_records_service">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_update_new_records_service</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve and execute the configured pull/update function.</span>
 
@@ -90,8 +138,59 @@
     <span class="k">return</span> <span class="n">fn</span><span class="p">()</span></div>
 
 
+
+<div class="viewcode-block" id="_bootstrap_jsonl_path">
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._bootstrap_jsonl_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bootstrap_jsonl_path</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return canonical JSONL path used for first-time DB table/bootstrap load.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="s1">&#39;llm_extend_applicant_data.jsonl&#39;</span></div>
+
+
+
+<div class="viewcode-block" id="_is_missing_admissions_table_error">
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._is_missing_admissions_table_error">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_missing_admissions_table_error</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True when the error indicates the admissions table is missing.&quot;&quot;&quot;</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="s1">&#39;relation &quot;admissions&quot; does not exist&#39;</span> <span class="ow">in</span> <span class="n">text</span>
+        <span class="ow">or</span> <span class="s2">&quot;relation &#39;admissions&#39; does not exist&quot;</span> <span class="ow">in</span> <span class="n">text</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="_start_bootstrap_worker">
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._start_bootstrap_worker">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_start_bootstrap_worker</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start background table/bootstrap load once for fresh databases.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">):</span>
+        <span class="k">return</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_worker</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run initial admissions bootstrap and persist one-shot error state.</span>
+
+<span class="sd">        :returns: ``None``.</span>
+<span class="sd">        :rtype: None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">stream_jsonl_to_postgres</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_bootstrap_jsonl_path</span><span class="p">()))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">_state_set</span><span class="p">(</span><span class="n">bootstrap_error_pending</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Initial database setup failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">_state_set</span><span class="p">(</span><span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">_state_set</span><span class="p">(</span>
+        <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bootstrap_message_pending</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bootstrap_error_pending</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_worker</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+
+
 <div class="viewcode-block" id="_empty_results">
-<a class="viewcode-back" href="../../api_board.html#board.pages._empty_results">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages._empty_results">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_empty_results</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a zeroed analysis payload for guarded/busy template responses.</span>
 
@@ -121,7 +220,7 @@
 <span class="c1"># for navbar highlighting</span>
 
 <div class="viewcode-block" id="analysis">
-<a class="viewcode-back" href="../../api_board.html#board.pages.analysis">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages.analysis">[docs]</a>
 <span class="nd">@bp</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
 <span class="nd">@bp</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/analysis&#39;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">analysis</span><span class="p">():</span>
@@ -133,18 +232,29 @@
 <span class="sd">    :returns: Rendered HTML response.</span>
 <span class="sd">    :rtype: str</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">_PULL_MESSAGE_PENDING</span><span class="p">,</span> <span class="n">_PULL_ERROR_PENDING</span>
     <span class="n">info_message</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">error_message</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">_PULL_MESSAGE_PENDING</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_message_pending&#39;</span><span class="p">):</span>
+        <span class="c1"># Message is one-shot to avoid repeating stale notices after refresh.</span>
         <span class="n">info_message</span> <span class="o">=</span> <span class="s1">&#39;Pull Data is currently running. Update Analysis will work once it finishes.&#39;</span>
-        <span class="n">_PULL_MESSAGE_PENDING</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="k">if</span> <span class="n">_PULL_ERROR_PENDING</span><span class="p">:</span>
-        <span class="n">error_message</span> <span class="o">=</span> <span class="n">_PULL_ERROR_PENDING</span>
-        <span class="n">_PULL_ERROR_PENDING</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_message_pending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_message_pending&#39;</span><span class="p">):</span>
+        <span class="n">info_message</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s1">&#39;Initial database setup is running in the background. &#39;</span>
+            <span class="s1">&#39;The page will refresh automatically once data is loaded.&#39;</span>
+        <span class="p">)</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">bootstrap_message_pending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">pending_error</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_error_pending&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pending_error</span><span class="p">:</span>
+        <span class="n">error_message</span> <span class="o">=</span> <span class="n">pending_error</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_error_pending</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">bootstrap_error</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_error_pending&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bootstrap_error</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">error_message</span><span class="p">:</span>
+        <span class="n">error_message</span> <span class="o">=</span> <span class="n">bootstrap_error</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">bootstrap_error_pending</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-            <span class="n">pull_in_progress</span> <span class="o">=</span> <span class="n">_PULL_IN_PROGRESS</span>
+        <span class="n">pull_in_progress</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">)</span>
+        <span class="n">bootstrap_in_progress</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">)</span>
         <span class="n">results</span> <span class="o">=</span> <span class="n">_run_analysis_service</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">error_message</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
@@ -152,28 +262,44 @@
                 <span class="n">error</span><span class="o">=</span><span class="n">error_message</span><span class="p">,</span>
                 <span class="n">results</span><span class="o">=</span><span class="n">results</span><span class="p">,</span>
                 <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">pull_in_progress</span><span class="p">,</span>
+                <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">bootstrap_in_progress</span><span class="p">,</span>
                 <span class="n">info_message</span><span class="o">=</span><span class="n">info_message</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
             <span class="s1">&#39;pages/analysis.html&#39;</span><span class="p">,</span>
             <span class="n">results</span><span class="o">=</span><span class="n">results</span><span class="p">,</span>
             <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">pull_in_progress</span><span class="p">,</span>
+            <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">bootstrap_in_progress</span><span class="p">,</span>
             <span class="n">info_message</span><span class="o">=</span><span class="n">info_message</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-            <span class="n">pull_in_progress</span> <span class="o">=</span> <span class="n">_PULL_IN_PROGRESS</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_is_missing_admissions_table_error</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+            <span class="n">_start_bootstrap_worker</span><span class="p">()</span>
+            <span class="n">info_message</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s1">&#39;Initial database setup is running in the background. &#39;</span>
+                <span class="s1">&#39;The page will refresh automatically once data is loaded.&#39;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
+                <span class="s1">&#39;pages/analysis.html&#39;</span><span class="p">,</span>
+                <span class="n">results</span><span class="o">=</span><span class="n">_empty_results</span><span class="p">(),</span>
+                <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">),</span>
+                <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">),</span>
+                <span class="n">info_message</span><span class="o">=</span><span class="n">info_message</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">pull_in_progress</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">)</span>
+        <span class="n">bootstrap_in_progress</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
             <span class="s1">&#39;pages/analysis.html&#39;</span><span class="p">,</span>
             <span class="n">error</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span>
             <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">pull_in_progress</span><span class="p">,</span>
+            <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">bootstrap_in_progress</span><span class="p">,</span>
             <span class="n">info_message</span><span class="o">=</span><span class="n">info_message</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
 
 <div class="viewcode-block" id="analysis_pull">
-<a class="viewcode-back" href="../../api_board.html#board.pages.analysis_pull">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages.analysis_pull">[docs]</a>
 <span class="nd">@bp</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/pull&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="nd">@bp</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/pull-data&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">analysis_pull</span><span class="p">():</span>
@@ -186,17 +312,16 @@
 <span class="sd">    :returns: Redirect/HTML response for browser routes or JSON for API routes.</span>
 <span class="sd">    :rtype: flask.Response | tuple[flask.Response, int]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">_PULL_IN_PROGRESS</span><span class="p">,</span> <span class="n">_PULL_MESSAGE_PENDING</span><span class="p">,</span> <span class="n">_PULL_ERROR_PENDING</span>
     <span class="n">is_api</span> <span class="o">=</span> <span class="n">_is_api_route</span><span class="p">()</span>
-    <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-        <span class="n">already_running</span> <span class="o">=</span> <span class="n">_PULL_IN_PROGRESS</span>
+    <span class="n">already_running</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">already_running</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">is_api</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;busy&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}),</span> <span class="mi">409</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">render_template</span><span class="p">(</span>
                 <span class="s1">&#39;pages/analysis.html&#39;</span><span class="p">,</span>
-                <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">_PULL_IN_PROGRESS</span><span class="p">,</span>
+                <span class="n">pull_in_progress</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">),</span>
                 <span class="n">results</span><span class="o">=</span><span class="n">_empty_results</span><span class="p">(),</span>
                 <span class="n">info_message</span><span class="o">=</span><span class="s1">&#39;Pull Data is already running. Please wait for it to finish.&#39;</span><span class="p">,</span>
             <span class="p">),</span>
@@ -204,43 +329,37 @@
         <span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_api</span><span class="p">:</span>
         <span class="n">update_fn</span> <span class="o">=</span> <span class="n">current_app</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;UPDATE_NEW_RECORDS_FN&quot;</span><span class="p">,</span> <span class="n">update_new_records</span><span class="p">)</span>
-        <span class="n">app_obj</span> <span class="o">=</span> <span class="n">current_app</span><span class="o">.</span><span class="n">_get_current_object</span><span class="p">()</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">_pull_worker</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">fn</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_pull_worker</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Execute pull work in a background thread.</span>
 
-<span class="sd">            :param app: Flask application object for context binding.</span>
-<span class="sd">            :type app: flask.Flask</span>
 <span class="sd">            :param fn: Pull/update callable to invoke.</span>
 <span class="sd">            :type fn: collections.abc.Callable</span>
 <span class="sd">            :returns: ``None``.</span>
 <span class="sd">            :rtype: None</span>
 <span class="sd">            &quot;&quot;&quot;</span>
-            <span class="k">global</span> <span class="n">_PULL_IN_PROGRESS</span><span class="p">,</span> <span class="n">_PULL_ERROR_PENDING</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">with</span> <span class="n">app</span><span class="o">.</span><span class="n">app_context</span><span class="p">():</span>
-                    <span class="n">fn</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="n">_PULL_ERROR_PENDING</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Pull Data failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">fn</span><span class="p">()</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Error</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_error_pending</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Pull Data failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
                 <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
             <span class="k">finally</span><span class="p">:</span>
-                <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-                    <span class="n">_PULL_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_in_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-            <span class="n">_PULL_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">_PULL_MESSAGE_PENDING</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">_PULL_ERROR_PENDING</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_pull_worker</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">app_obj</span><span class="p">,</span> <span class="n">update_fn</span><span class="p">))</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="n">_state_set</span><span class="p">(</span>
+            <span class="n">pull_in_progress</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">pull_message_pending</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">pull_error_pending</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Fire-and-forget worker keeps browser flow responsive.</span>
+        <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_pull_worker</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">update_fn</span><span class="p">,),</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-            <span class="n">_PULL_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_in_progress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">update_status</span> <span class="o">=</span> <span class="n">_update_new_records_service</span><span class="p">()</span>
         <span class="n">_run_analysis_service</span><span class="p">()</span>
-        <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-            <span class="n">_PULL_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_in_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span>
             <span class="p">{</span>
                 <span class="s2">&quot;busy&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
@@ -249,15 +368,14 @@
                 <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">update_status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">),</span>
             <span class="p">}</span>
         <span class="p">),</span> <span class="mi">200</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-            <span class="n">_PULL_IN_PROGRESS</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Error</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_in_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;busy&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)}),</span> <span class="mi">500</span></div>
 
 
 
 <div class="viewcode-block" id="analysis_update">
-<a class="viewcode-back" href="../../api_board.html#board.pages.analysis_update">[docs]</a>
+<a class="viewcode-back" href="../../api_flask_routes.html#board.pages.analysis_update">[docs]</a>
 <span class="nd">@bp</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/update&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="nd">@bp</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/update-analysis&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">analysis_update</span><span class="p">():</span>
@@ -269,13 +387,12 @@
 <span class="sd">    :returns: Redirect/HTML response for browser routes or JSON for API routes.</span>
 <span class="sd">    :rtype: flask.Response | tuple[flask.Response, int]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">_PULL_MESSAGE_PENDING</span>
-    <span class="k">with</span> <span class="n">_PULL_LOCK</span><span class="p">:</span>
-        <span class="n">pull_in_progress</span> <span class="o">=</span> <span class="n">_PULL_IN_PROGRESS</span>
+    <span class="n">pull_in_progress</span> <span class="o">=</span> <span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">pull_in_progress</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">_is_api_route</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;busy&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}),</span> <span class="mi">409</span>
-        <span class="n">_PULL_MESSAGE_PENDING</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># Browser path redirects so banner message can be rendered on GET /analysis.</span>
+        <span class="n">_state_set</span><span class="p">(</span><span class="n">pull_message_pending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">results</span> <span class="o">=</span> <span class="n">_run_analysis_service</span><span class="p">()</span>
@@ -284,16 +401,18 @@
         <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
             <span class="s1">&#39;pages/analysis.html&#39;</span><span class="p">,</span>
             <span class="n">results</span><span class="o">=</span><span class="n">results</span><span class="p">,</span>
-            <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">_PULL_IN_PROGRESS</span><span class="p">,</span>
+            <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">),</span>
+            <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">),</span>
             <span class="n">info_message</span><span class="o">=</span><span class="s1">&#39;Analysis updated with the latest available data.&#39;</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">_is_api_route</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;busy&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)}),</span> <span class="mi">500</span>
         <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
             <span class="s1">&#39;pages/analysis.html&#39;</span><span class="p">,</span>
             <span class="n">error</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span>
-            <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">_PULL_IN_PROGRESS</span><span class="p">,</span>
+            <span class="n">pull_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;pull_in_progress&#39;</span><span class="p">),</span>
+            <span class="n">bootstrap_in_progress</span><span class="o">=</span><span class="n">_state_get</span><span class="p">(</span><span class="s1">&#39;bootstrap_in_progress&#39;</span><span class="p">),</span>
         <span class="p">)</span></div>
 
 </pre></div>
@@ -304,7 +423,7 @@
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../../index.html">JHU Software Concepts - Module 4</a></h1>
+<h1 class="logo"><a href="../../index.html">JHU Software Concepts - Module 5</a></h1>
 
 
 
@@ -325,8 +444,12 @@
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../setup.html">Setup &amp; Run Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../operational_notes.html">Operational Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../modules.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing Guide</a></li>
 </ul>
 
 <div class="relations">
