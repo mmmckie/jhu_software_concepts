@@ -142,6 +142,27 @@ def test_provision_schema_raises_when_database_url_set(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
 
 
+def test_provision_schema_creates_table_and_grants(monkeypatch):
+    """Ensure schema provisioning executes DDL and least-privilege grants."""
+    import load_data
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_USER", "grad_app")
+
+    c = FakeCursor()
+    conn = FakeConn(c)
+    monkeypatch.setattr(load_data.psycopg, "connect", lambda *args, **kwargs: conn)
+
+    load_data._provision_admissions_schema()
+
+    assert conn.committed is True
+    assert any("CREATE TABLE IF NOT EXISTS admissions" in str(q) for q, _ in c.executed)
+    assert any("CREATE UNIQUE INDEX IF NOT EXISTS admissions_url_key" in str(q) for q, _ in c.executed)
+    assert any("GRANT USAGE ON SCHEMA public" in str(q) for q, _ in c.executed)
+    assert any("GRANT SELECT, INSERT, UPDATE ON TABLE public.admissions" in str(q) for q, _ in c.executed)
+    assert any("GRANT USAGE, SELECT ON SEQUENCE public.admissions_p_id_seq" in str(q) for q, _ in c.executed)
+
+
 def test_load_data_main_guard(monkeypatch, tmp_path):
     """Validate ``load_data.py`` script guard executes ingest flow."""
     # Setup: fake psycopg and input file so script guard can run without real DB/filesystem deps.
